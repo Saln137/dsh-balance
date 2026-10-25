@@ -25,6 +25,7 @@ const STYLES = `
   justify-content: center;
 }
 
+/* 双行行高 52：与上下相邻的账号/设置行节奏一致，又留得下「今日消费」这行小字。 */
 .dshb-trigger {
   position: relative;
   flex: 1 1 auto;
@@ -32,7 +33,7 @@ const STYLES = `
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 42px;
+  height: 52px;
   margin: 0;
   padding: 0 10px 0 8px;
   box-sizing: border-box;
@@ -42,7 +43,7 @@ const STYLES = `
   color: var(--dsw-alias-label-primary, inherit);
   font-family: inherit;
   font-size: 14px;
-  line-height: 22px;
+  line-height: 20px;
   text-align: left;
   cursor: pointer;
   overflow: hidden;
@@ -80,14 +81,34 @@ const STYLES = `
   color: inherit;
 }
 
+.dshb-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dshb-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 第二行始终占位，避免今日数据到达时行高跳动。 */
+.dshb-row-sub {
+  min-height: 14px;
+}
+
 .dshb-label {
   flex: none;
-  overflow: hidden;
-  white-space: nowrap;
+  color: var(--dsw-alias-label-primary, inherit);
 }
 
 .dshb-value {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-align: right;
@@ -95,6 +116,55 @@ const STYLES = `
   white-space: nowrap;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.dshb-today {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary, inherit);
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dshb-low-tag {
+  flex: none;
+  padding: 0 5px;
+  border-radius: var(--dsw-radius-xs, 4px);
+  color: var(--dsw-alias-state-error-primary, #d93a3a);
+  background: rgba(217, 58, 58, 0.12);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93a3a) 14%, transparent);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+/* ---- 低余额：整行染红 + 警示图标缓慢呼吸，扫一眼就能发现 ---- */
+.dshb-root.dshb-low .dshb-trigger {
+  background: rgba(217, 58, 58, 0.08);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93a3a) 10%, transparent);
+}
+
+.dshb-root.dshb-low .dshb-trigger:hover {
+  background: rgba(217, 58, 58, 0.14);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93a3a) 16%, transparent);
+}
+
+.dshb-root.dshb-low .dshb-icon {
+  color: var(--dsw-alias-state-error-primary, #d93a3a);
+  animation: dshb-alert-pulse 2.4s ease-in-out infinite;
+}
+
+.dshb-root.dshb-low .dshb-value {
+  color: var(--dsw-alias-state-error-primary, #d93a3a);
+  font-weight: 600;
+}
+
+@keyframes dshb-alert-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .dshb-dot {
@@ -147,7 +217,6 @@ const STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 4px;
 }
 
 .dshb-pop-title {
@@ -166,11 +235,116 @@ const STYLES = `
   white-space: nowrap;
 }
 
-.dshb-wallet {
-  padding: 8px 0;
+/* ---- 余额主数字 + 今日消费/充值 ---- */
+.dshb-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0 8px;
 }
 
-.dshb-wallet + .dshb-wallet {
+.dshb-hero-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dshb-hero-amount {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.dshb-hero-code {
+  color: var(--dsw-alias-label-tertiary, inherit);
+  font-size: 11px;
+}
+
+.dshb-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-bottom: 2px;
+}
+
+.dshb-chip {
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dshb-chip-up {
+  color: var(--dsw-alias-state-success-primary, #1a7f37);
+}
+
+/* ---- 低余额横幅 ---- */
+.dshb-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--dsw-radius-md, 12px);
+  background: rgba(217, 58, 58, 0.10);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93a3a) 12%, transparent);
+}
+
+.dshb-alert-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dshb-alert-title {
+  color: var(--dsw-alias-state-error-primary, #d93a3a);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.dshb-alert-text {
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.dshb-topup {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-button-primary-fill, #171717);
+  color: var(--dsw-alias-label-primary-inverted, #ffffff);
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dshb-topup:hover {
+  background: var(--dsw-alias-button-primary-hover, #333333);
+}
+
+.dshb-topup:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, currentColor);
+  outline-offset: 1px;
+}
+
+/* ---- 其余币种明细 ---- */
+.dshb-wallet {
+  padding: 7px 0;
   border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.2));
 }
 
@@ -181,8 +355,8 @@ const STYLES = `
 }
 
 .dshb-wallet-amount {
-  font-size: 20px;
-  line-height: 28px;
+  font-size: 16px;
+  line-height: 24px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -199,6 +373,7 @@ const STYLES = `
   margin-top: 2px;
   color: var(--dsw-alias-label-secondary, inherit);
   font-size: 12px;
+  line-height: 18px;
 }
 
 .dshb-sep {
@@ -291,6 +466,7 @@ const STYLES = `
   .dshb-pop { animation: none; }
   .dshb-spin { animation: none; }
   .dshb-trigger { transition: none; }
+  .dshb-root.dshb-low .dshb-icon { animation: none; }
 }
 `
 

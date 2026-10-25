@@ -35,6 +35,41 @@ export interface WalletView {
   toppedUp?: string
 }
 
+/**
+ * 某币种「今日」的余额变动。
+ *
+ * 口径来自**余额本身**（DeepSeek 平台没有公开的本地账单接口）：余额净减少算消费，
+ * 余额增加单独记为充值/退款——两者不互相冲抵，所以「充值 100 又花掉 2」会显示
+ * `spent=2 / toppedUp=100`，而不是 0。
+ */
+export interface SpendEntry {
+  /** 今日累计消费（正数，两位小数字符串）。 */
+  spent: string
+  /** 今日累计入账（充值/退款，正数）。 */
+  toppedUp: string
+  /** 今日首次观测到的余额（当日基准）。 */
+  startBalance: string
+}
+
+/** 今日账本：一个日期 + 每个观测到的币种。 */
+export interface DailySpend {
+  /** 账本日期 `YYYY-MM-DD`（按配置的 dayTimeZone，默认北京时间）。 */
+  date: string
+  /** 币种 → 今日变动。 */
+  byCurrency: Record<string, SpendEntry>
+}
+
+/** 低余额告警。 */
+export interface LowBalance {
+  /** 是否已低于阈值。 */
+  active: boolean
+  currency: string
+  /** 触发阈值（原样两位小数）。 */
+  threshold: string
+  /** 当前余额（与 currency 对应）。 */
+  balance: string
+}
+
 /** `GET /dsh-balance/state` 的响应体，也是插槽组件渲染的唯一数据源。 */
 export interface BalanceView {
   status: BalanceStatus
@@ -52,6 +87,12 @@ export interface BalanceView {
   displayCurrency: 'auto' | 'CNY' | 'USD'
   /** 侧边栏折叠时是否仍显示图标。 */
   showInRail: boolean
+  /** 今日账本；还没有成功读数时为 null。 */
+  today: DailySpend | null
+  /** 低余额告警；没有可用余额时为 null。 */
+  low: LowBalance | null
+  /** 账号服务提供的充值页地址（仅账号路由且服务提供时存在）。 */
+  topUpUrl?: string
 }
 
 /** 路由前缀；客户端与宿主共用，避免两边各写一份字符串。 */

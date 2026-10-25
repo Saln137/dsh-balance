@@ -22,3 +22,10 @@
         displayCurrency: auto
         # 侧边栏折叠成图标栏时是否仍然显示（图标 + 状态点）
         showInRail: true
+        # 今日消费：按「余额净减少」统计（充值单独计），跨天按北京时间重置
+        todaySpend: true
+        # 低余额告警阈值（币种 → 金额）：低于它就整行转红 + 警示图标 + 浮层横幅（含「去充值」）
+        # 0 表示该币种不告警；只写关心的币种，其余用默认值
+        lowBalanceThresholds:
+          CNY: 2
+          USD: 0.3

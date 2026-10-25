@@ -18,6 +18,10 @@ if (!launchUrl) {
 }
 
 const base = new URL(launchUrl).origin
+/** 实例把阈值调高到 5 时，用 `--expect-low` 打开「必须告警」的断言。 */
+const expectLow = process.argv.includes('--expect-low')
+/** 用假账号服务时，用 `--account` 打开账号路由相关断言。 */
+const expectAccount = process.argv.includes('--account')
 
 // 1) 用带令牌的启动 URL 换 Cookie（DSH 只在该 URL 上接受进程令牌）。
 const login = await fetch(launchUrl, { redirect: 'manual' })
@@ -52,24 +56,60 @@ assert.equal(stateResponse.headers.get('cache-control'), 'no-store')
 const state = await stateResponse.json()
 console.log(`✓ GET /state → ${JSON.stringify(state)}`)
 assert.equal(state.status, 'ready', '快照应为 ready')
-assert.equal(state.source, 'api-key', '数据源应为 api-key')
-assert.equal(state.wallets.length, 2, '应有两个币种钱包')
+assert.equal(state.source, expectAccount ? 'account' : 'api-key', '数据源应与 profile 配置一致')
+assert.equal(state.wallets.length, expectAccount ? 1 : 2, '钱包数量应与数据源一致')
 assert.equal(state.wallets[0].currency, 'CNY')
-assert.equal(state.wallets[0].total, '128.4500', '宿主应原样保留服务端金额')
-assert.equal(state.wallets[0].granted, '18.45')
-assert.equal(state.wallets[0].toppedUp, '110.00')
+assert.ok(Number.isFinite(Number(state.wallets[0].total)), '余额应是合法金额')
+if (expectAccount) {
+  // 账号路由提供的充值页：低余额横幅里的「去充值」靠它。
+  assert.equal(state.topUpUrl, 'https://platform.example/top_up', '账号路由应带充值页')
+} else {
+  assert.equal(state.wallets[0].granted, '0.50', '宿主应原样保留赠送分项')
+}
 
-// 5) 手动刷新：必须真的再打一次上游。
+// 今日账本：date 必须是 YYYY-MM-DD，CNY 必须有条目（首次读数 spent=0）。
+assert.ok(state.today !== null, '快照应带今日账本')
+assert.match(state.today.date, /^\d{4}-\d{2}-\d{2}$/u)
+const todayCny = state.today.byCurrency['CNY']
+assert.ok(todayCny !== undefined, '今日账本应包含 CNY')
+assert.ok(Number(todayCny.spent) >= 0, '今日消费不应为负')
+if (!expectLow) assert.equal(state.low, null, '余额高于阈值时不应告警（默认 CNY 2）')
+
+// 5) 手动刷新：必须真的再打一次上游，并且余额下降被记成今日消费。
 const before = (await (await fetch(`${mockBase}/hits`)).json()).hits
+const spentBefore = Number(todayCny.spent)
 const refreshResponse = await fetch(`${base}/dsh-balance/refresh`, { method: 'POST', headers: { cookie } })
 assert.equal(refreshResponse.status, 200, 'POST /refresh 应返回 200')
 const refreshed = await refreshResponse.json()
 assert.equal(refreshed.status, 'ready')
-const after = (await (await fetch(`${mockBase}/hits`)).json()).hits
-assert.ok(after > before, `刷新应触发上游请求（before=${before}, after=${after}）`)
-console.log(`✓ POST /refresh 触发上游刷新（hit ${before} → ${after}）`)
 
-// 6) 错误路径：未知子路径 404。
+if (expectAccount) {
+  // 假账号服务余额恒定：这一轮只验证「账号路由仍然可刷新」，以及充值页/告警没丢。
+  assert.equal(refreshed.topUpUrl, 'https://platform.example/top_up', '刷新后充值页仍在')
+  assert.equal(refreshed.low?.active, true, '刷新后告警仍在')
+  console.log('✓ 账号路由刷新成功（余额恒定，充值页与告警保持）')
+} else {
+  const after = (await (await fetch(`${mockBase}/hits`)).json()).hits
+  assert.ok(after > before, `刷新应触发上游请求（before=${before}, after=${after}）`)
+  const spentAfter = Number(refreshed.today.byCurrency['CNY'].spent)
+  assert.ok(spentAfter > spentBefore, `余额下降应累计为今日消费（${spentBefore} → ${spentAfter}）`)
+  assert.ok(
+    Number(refreshed.wallets[0].total) < Number(state.wallets[0].total),
+    '假接口每次返回递减余额，刷新后应更低',
+  )
+  console.log(`✓ POST /refresh 触发上游刷新（hit ${before} → ${after}），今日消费 ${spentBefore} → ${spentAfter}`)
+}
+
+// 6) 低余额告警：阈值=5 的实例应该立刻告警（由 `--expect-low` 打开断言）。
+if (expectLow) {
+  assert.ok(refreshed.low !== null, '低于阈值时应带 low 告警')
+  assert.equal(refreshed.low.active, true)
+  assert.equal(refreshed.low.currency, 'CNY')
+  assert.equal(refreshed.low.threshold, '5.00')
+  console.log(`✓ 低余额告警生效（阈值 ${refreshed.low.threshold}，当前 ${refreshed.low.balance}）`)
+}
+
+// 7) 错误路径：未知子路径 404。
 const missing = await fetch(`${base}/dsh-balance/unknown`, { headers: { cookie } })
 assert.equal(missing.status, 404)
 console.log('✓ 未知子路径返回 404')

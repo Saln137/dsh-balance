@@ -33,6 +33,14 @@ export const zh: LocaleDict = {
   loading: '正在读取余额…',
   staleNote: '显示的是上次成功读取的余额',
   unavailable: '暂不可用',
+  today: '今日',
+  todaySpend: '今日消费',
+  todayTopUp: '今日充值',
+  lowTag: '余额不足',
+  lowTitle: '余额不足',
+  lowHint: '当前 {balance}，已低于提醒阈值 {threshold}。',
+  topUp: '去充值',
+  ariaLow: '账户余额：{value}，余额不足',
 }
 
 /** 英文文案。 */
@@ -59,4 +67,12 @@ export const en: LocaleDict = {
   loading: 'Reading balance…',
   staleNote: 'Showing the last successful read',
   unavailable: 'Unavailable',
+  today: 'Today',
+  todaySpend: "Today's spend",
+  todayTopUp: "Today's top-up",
+  lowTag: 'Low',
+  lowTitle: 'Low balance',
+  lowHint: 'Current {balance} is below the {threshold} alert threshold.',
+  topUp: 'Top up',
+  ariaLow: 'Account balance: {value}, low balance',
 }

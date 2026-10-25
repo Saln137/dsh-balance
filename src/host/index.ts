@@ -18,8 +18,11 @@
  */
 import { readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { normalizeConfig } from './config.ts'
 import type { HostContext } from './context.ts'
+import { applyReading, dayOf, detectLow, loadLedger, saveLedger, toDailySpend } from './ledger.ts'
 import { createBalanceStore } from './store.ts'
 import { readBalance, type AccountLike } from './sources.ts'
 import { PLUGIN_ID, ROUTE_PREFIX } from '../shared/types.ts'
@@ -97,10 +100,33 @@ export function apply(ctx: HostContext, rawConfig?: unknown): void {
     showInRail: config.showInRail,
   })
 
+  // 今日账本：落在 $DSH_HOME/dsh-balance/ledger.json，重启后当天数据还在。
+  const ledgerPath = join(process.env['DSH_HOME'] ?? join(homedir(), '.dsh'), 'dsh-balance', 'ledger.json')
+  let ledger = loadLedger(ledgerPath)
+
   let disposed = false
   let inFlight: Promise<void> | undefined
   let settleTimer: ReturnType<typeof setTimeout> | undefined
   let intervalTimer: ReturnType<typeof setInterval> | undefined
+
+  /**
+   * 读账号服务里的充值页地址（`AccountView.links.topUpUrl`）。
+   * 只对账号路由有意义；任何失败都不影响余额展示。
+   * @returns 充值页地址，或 undefined。
+   */
+  const readTopUpUrl = async (source: string): Promise<string | undefined> => {
+    if (source !== 'account') return undefined
+    try {
+      const account = ctx.get<{ getState?(): Promise<unknown> } | undefined>('deepseekAccount', false)
+      if (account?.getState === undefined) return undefined
+      const state = await account.getState()
+      const links = (state as { links?: { topUpUrl?: unknown } } | null)?.links
+      const url = links?.topUpUrl
+      return typeof url === 'string' && /^https?:\/\//u.test(url) ? url : undefined
+    } catch {
+      return undefined
+    }
+  }
 
   /**
    * 刷新一次余额（并发去重：同一时刻只允许一个请求在飞）。
@@ -129,7 +155,21 @@ export function apply(ctx: HostContext, rawConfig?: unknown): void {
       if (disposed) return
       const at = Date.now()
       if (result.ok) {
-        store.succeed(result.wallets, result.source, at)
+        // 今日消费靠「余额减少」推算：每次成功读数都记一笔，并落盘。
+        const date = dayOf(new Date(at), config.dayTimeZone)
+        ledger = applyReading(ledger, result.wallets, date)
+        try {
+          saveLedger(ledgerPath, ledger)
+        } catch (error) {
+          // 落盘失败只影响重启后的今日统计，不该让余额刷新失败。
+          ctx.logger?.warn?.(`[${name}] 今日账本写入失败：${messageOf(error)}`)
+        }
+        const topUpUrl = await readTopUpUrl(result.source)
+        store.succeed(result.wallets, result.source, at, {
+          today: config.todaySpend ? toDailySpend(ledger, date) : null,
+          low: detectLow(result.wallets, config.lowBalanceThresholds),
+          ...(topUpUrl === undefined ? {} : { topUpUrl }),
+        })
         ctx.logger?.debug?.(`[${name}] 余额已刷新（${reason}）：${result.source} / ${result.wallets.length} 个钱包`)
       } else {
         store.fail({ status: result.status, error: result.error, source: result.source }, at)

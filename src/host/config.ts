@@ -29,9 +29,18 @@ export interface BalanceConfig {
   displayCurrency: 'auto' | 'CNY' | 'USD'
   /** 侧边栏折叠时是否仍显示。 */
   showInRail: boolean
+  /** 是否统计并展示「今日消费」。 */
+  todaySpend: boolean
+  /** 低余额告警阈值（币种 → 金额）；0 表示该币种不告警。 */
+  lowBalanceThresholds: Record<string, number>
+  /** 计算「今天」用的时区（DeepSeek 按北京时间计费）。 */
+  dayTimeZone: string
   /** 是否输出调试日志（只输出状态，绝不输出凭据）。 */
   debug: boolean
 }
+
+/** 默认低余额阈值：人民币 2 元、美元 0.3 元；余额低于它就开始醒目提示。 */
+export const DEFAULT_LOW_BALANCE: Readonly<Record<string, number>> = { CNY: 2, USD: 0.3 }
 
 /** 默认配置：与 cordis.patch.yml 里注释的默认值保持一致。 */
 export const DEFAULT_CONFIG: BalanceConfig = {
@@ -46,6 +55,9 @@ export const DEFAULT_CONFIG: BalanceConfig = {
   locale: 'zh-CN',
   displayCurrency: 'auto',
   showInRail: true,
+  todaySpend: true,
+  lowBalanceThresholds: { ...DEFAULT_LOW_BALANCE },
+  dayTimeZone: 'Asia/Shanghai',
   debug: false,
 }
 
@@ -91,6 +103,44 @@ function readBaseUrl(value: unknown, fallback: string): string {
 }
 
 /**
+ * 归一化低余额阈值表。
+ *
+ * 用户只写关心的币种即可，其余保留默认；值必须是非负有限数（0 = 该币种不告警）。
+ * 币种键按 `CNY` / `USD` 这种 3–5 位大写代码收敛。
+ * @param value - 原始值（YAML 对象）。
+ * @returns 币种 → 阈值。
+ */
+function readThresholds(value: unknown): Record<string, number> {
+  const thresholds: Record<string, number> = { ...DEFAULT_LOW_BALANCE }
+  if (!isRecord(value)) return thresholds
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    const currency = rawKey.trim().toUpperCase()
+    if (!/^[A-Z]{3,5}$/u.test(currency)) continue
+    const parsed = typeof rawValue === 'number' ? rawValue : typeof rawValue === 'string' ? Number(rawValue) : Number.NaN
+    if (!Number.isFinite(parsed) || parsed < 0) continue
+    thresholds[currency] = Math.round(parsed * 100) / 100
+  }
+  return thresholds
+}
+
+/**
+ * 归一化时区名（`Intl` 不认的值会让 `DateTimeFormat` 抛错，这里提前挡掉）。
+ * @param value - 原始值。
+ * @param fallback - 缺失/非法时的默认值。
+ * @returns 合法 IANA 时区名。
+ */
+function readTimeZone(value: unknown, fallback: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) return fallback
+  const zone = value.trim()
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone })
+    return zone
+  } catch {
+    return fallback
+  }
+}
+
+/**
  * 把原始 `config` 归一化。
  * @param raw - Loader 传入的配置（可能是 undefined、字符串或对象）。
  * @returns 完整配置，字段全部合法。
@@ -122,6 +172,9 @@ export function normalizeConfig(raw: unknown): BalanceConfig {
         ? displayCurrency
         : DEFAULT_CONFIG.displayCurrency,
     showInRail: typeof source['showInRail'] === 'boolean' ? source['showInRail'] : DEFAULT_CONFIG.showInRail,
+    todaySpend: typeof source['todaySpend'] === 'boolean' ? source['todaySpend'] : DEFAULT_CONFIG.todaySpend,
+    lowBalanceThresholds: readThresholds(source['lowBalanceThresholds']),
+    dayTimeZone: readTimeZone(source['dayTimeZone'], DEFAULT_CONFIG.dayTimeZone),
     debug: source['debug'] === true,
   }
 }

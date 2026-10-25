@@ -64,4 +64,33 @@ describe('normalizeConfig', () => {
     assert.equal(normalizeConfig({ requestTimeoutMs: 10 }).requestTimeoutMs, 3_000)
     assert.equal(normalizeConfig({ requestTimeoutMs: 999_999 }).requestTimeoutMs, 60_000)
   })
+
+  it('低余额阈值只覆盖给出的币种，其余保留默认', () => {
+    assert.deepEqual(normalizeConfig({ lowBalanceThresholds: { CNY: 5 } }).lowBalanceThresholds, {
+      CNY: 5,
+      USD: 0.3,
+    })
+    assert.equal(normalizeConfig({ lowBalanceThresholds: { cny: '3.5' } }).lowBalanceThresholds['CNY'], 3.5)
+  })
+
+  it('低余额阈值忽略非法键与非法值，0 表示关闭该币种告警', () => {
+    const thresholds = normalizeConfig({
+      lowBalanceThresholds: { 'not a code': 9, CNY: -1, USD: 0, EUR: 'abc' },
+    }).lowBalanceThresholds
+    assert.equal('not a code' in thresholds, false)
+    assert.equal(thresholds['CNY'], 2, '负数被忽略，保留默认')
+    assert.equal(thresholds['USD'], 0, '0 是合法值（关闭）')
+    assert.equal('EUR' in thresholds, false, '非法值被忽略')
+  })
+
+  it('今日统计开关只接受布尔', () => {
+    assert.equal(normalizeConfig({ todaySpend: false }).todaySpend, false)
+    assert.equal(normalizeConfig({ todaySpend: 'no' }).todaySpend, true)
+  })
+
+  it('时区非法时回落到默认（北京时间）', () => {
+    assert.equal(normalizeConfig({ dayTimeZone: 'Asia/Tokyo' }).dayTimeZone, 'Asia/Tokyo')
+    assert.equal(normalizeConfig({ dayTimeZone: 'Mars/Olympus' }).dayTimeZone, 'Asia/Shanghai')
+    assert.equal(normalizeConfig({ dayTimeZone: 42 }).dayTimeZone, 'Asia/Shanghai')
+  })
 })

@@ -1,19 +1,24 @@
 /**
- * 侧边栏底部的余额控件：一个常驻胶囊 + 一个详情浮层。
+ * 侧边栏底部的余额控件：常驻的双行胶囊 + 明细浮层。
+ *
+ * 显示层级（从扫一眼到细看）：
+ * - 第一行：余额（主币种），低余额时整行转成告警色并换成警示图标；
+ * - 第二行：今日消费（没有数据时不占位、不留空白噪音）；
+ * - 浮层：大号余额、今日消费/充值、低余额横幅（含「去充值」）、各币种明细、更新时间。
  *
  * 交互契约：
- * - 胶囊常驻（`sidebar.footer.action`），左键展开详情，`Escape`/点外部关闭；
- * - 数据来自宿主 `GET /dsh-balance/state`：页面只管展示，不自己排定时器去查官方接口；
+ * - 左键展开详情，`Escape`/点外部关闭；
+ * - 数据来自宿主 `GET /dsh-balance/state`，页面不自己排定时器去查官方接口；
  * - 轮询间隔由宿主下发（`pollMs`），页面重新可见/获得焦点时补一次；
- * - 「刷新」按钮走 `POST /dsh-balance/refresh`，绕过缓存的定时器。
+ * - 「刷新」走 `POST /dsh-balance/refresh`。
  *
  * 渲染方式：`react` 由 `__ModuleLoader__` 的 factory `require` 注入（平台种子模块），
  * 组件里只用 `React.createElement`，因此客户端产物是一个**没有顶层 import** 的
  * 普通脚本——这正是 DSH 客户端模块系统要求的形态。
  */
 import type * as ReactNS from 'react'
-import { formatAmount, formatClock, pickPrimaryWallet } from '../shared/format.ts'
-import { ROUTE_PREFIX, type BalanceStatus, type BalanceView } from '../shared/types.ts'
+import { formatAmount, formatClock, formatSpend, formatTopUp, pickPrimaryWallet } from '../shared/format.ts'
+import { ROUTE_PREFIX, type BalanceStatus, type BalanceView, type WalletView } from '../shared/types.ts'
 import type { Translate } from './context.ts'
 import { ensureStyles } from './styles.ts'
 
@@ -26,6 +31,7 @@ export interface IconProps {
 /** 可选使用的官方图标集；缺失时退回内置 SVG。 */
 export interface IconsModule {
   IconGaugeOutlineMedium?: ReactNS.ComponentType<IconProps>
+  IconWarningTriangleOutlineMedium?: ReactNS.ComponentType<IconProps>
   IconRefreshOutlineMedium?: ReactNS.ComponentType<IconProps>
 }
 
@@ -119,6 +125,21 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
       h('circle', { cx: '11', cy: '9.75', r: '1', fill: 'currentColor' }),
     )
 
+  /** 内置警示图标（低余额时替换钱包图标）。 */
+  const fallbackWarningIcon = (size: number): ReactNS.ReactElement =>
+    h(
+      'svg',
+      { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': 'true' },
+      h('path', {
+        d: 'M8 2.2 14.2 13a.9.9 0 0 1-.78 1.35H2.58A.9.9 0 0 1 1.8 13L8 2.2Z',
+        stroke: 'currentColor',
+        strokeWidth: '1.2',
+        strokeLinejoin: 'round',
+      }),
+      h('path', { d: 'M8 6v3.4', stroke: 'currentColor', strokeWidth: '1.2', strokeLinecap: 'round' }),
+      h('circle', { cx: '8', cy: '11.6', r: '0.75', fill: 'currentColor' }),
+    )
+
   /** 内置刷新图标。 */
   const fallbackRefreshIcon = (size: number): ReactNS.ReactElement =>
     h(
@@ -140,6 +161,7 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
     )
 
   const WalletIcon = icons?.IconGaugeOutlineMedium
+  const WarningIcon = icons?.IconWarningTriangleOutlineMedium
   const RefreshIcon = icons?.IconRefreshOutlineMedium
 
   return function BalanceWidget(props: WidgetProps): ReactNS.ReactElement {
@@ -280,6 +302,21 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
     const tone = toneOf(status)
     const valueText =
       primary !== undefined ? formatAmount(primary.total, primary.currency) : t(placeholderKey(status))
+
+    // 今日账本：只取主币种那一份（其他币种在浮层里各自展示）。
+    const primarySpend = primary === undefined ? undefined : view?.today?.byCurrency[primary.currency]
+    const spendText =
+      primary === undefined || primarySpend === undefined ? null : formatSpend(primarySpend.spent, primary.currency)
+    const spendTopUpText =
+      primary === undefined || primarySpend === undefined ? '' : formatTopUp(primarySpend.toppedUp, primary.currency)
+
+    // 低余额告警：宿主算好阈值与是否触发，界面只负责「显著地表现出来」。
+    const low = view?.low ?? null
+    const isLow = low !== null && low.active
+    const lowBalanceText = low === null ? '' : formatAmount(low.balance, low.currency)
+    const lowThresholdText = low === null ? '' : formatAmount(low.threshold, low.currency)
+    const topUpUrl = view?.topUpUrl
+
     const sourceText =
       view === null || view.source === 'none'
         ? t('source.none')
@@ -313,21 +350,40 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
     const notice = noticeParts.join(' · ')
 
     // ---- 渲染 ----
-    const iconNode =
-      WalletIcon !== undefined
-        ? h(WalletIcon, { size: wide ? 16 : 18, className: 'dshb-icon-glyph' })
-        : fallbackWalletIcon(wide ? 16 : 18)
+    const iconSize = wide ? 16 : 18
+    const iconNode = isLow
+      ? WarningIcon !== undefined
+        ? h(WarningIcon, { size: iconSize })
+        : fallbackWarningIcon(iconSize)
+      : WalletIcon !== undefined
+        ? h(WalletIcon, { size: iconSize })
+        : fallbackWalletIcon(iconSize)
 
-    const refreshIconNode =
-      RefreshIcon !== undefined
-        ? h(RefreshIcon, { size: 13 })
-        : fallbackRefreshIcon(13)
+    const refreshIconNode = RefreshIcon !== undefined ? h(RefreshIcon, { size: 13 }) : fallbackRefreshIcon(13)
 
-    const stateDot =
-      tone === 'ok'
-        ? null
-        : h('span', { className: `dshb-dot dshb-dot-${tone}`, 'aria-hidden': 'true' })
+    const stateDot = tone === 'ok' ? null : h('span', { className: `dshb-dot dshb-dot-${tone}`, 'aria-hidden': 'true' })
 
+    // 双行内容：没有今日数据时第二行保留空位，避免展开/收起时行高跳动。
+    const textBlock = wide
+      ? h(
+          'span',
+          { className: 'dshb-text' },
+          h(
+            'span',
+            { className: 'dshb-row' },
+            h('span', { className: 'dshb-label' }, t('label')),
+            h('span', { className: 'dshb-value' }, valueText),
+          ),
+          h(
+            'span',
+            { className: 'dshb-row dshb-row-sub' },
+            isLow ? h('span', { className: 'dshb-low-tag' }, t('lowTag')) : null,
+            spendText !== null ? h('span', { className: 'dshb-today' }, `${t('today')} ${spendText}`) : null,
+          ),
+        )
+      : null
+
+    const ariaText = t(isLow ? 'ariaLow' : 'ariaLabel', { value: valueText })
     const trigger = h(
       'button',
       {
@@ -336,15 +392,64 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
         className: 'dshb-trigger',
         'aria-haspopup': 'dialog',
         'aria-expanded': open ? 'true' : 'false',
-        'aria-label': t('ariaLabel', { value: valueText }),
-        ...(wide ? {} : { title: t('ariaLabel', { value: valueText }) }),
+        'aria-label': ariaText,
+        ...(wide ? {} : { title: ariaText }),
         onClick: toggleOpen,
       },
       h('span', { className: 'dshb-icon', 'aria-hidden': 'true' }, iconNode),
-      wide ? h('span', { className: 'dshb-label' }, t('label')) : null,
-      wide ? h('span', { className: 'dshb-value' }, valueText) : null,
+      textBlock,
       stateDot,
     )
+
+    // 主币种的分项（赠送/充值）——只有一个钱包时不让它重复出现在明细列表里。
+    const primaryBreakdown =
+      primary !== undefined && (primary.granted !== undefined || primary.toppedUp !== undefined)
+        ? h(
+            'div',
+            { className: 'dshb-wallet-sub' },
+            primary.granted !== undefined
+              ? h('span', null, t('granted', { amount: formatAmount(primary.granted, primary.currency) }))
+              : null,
+            primary.granted !== undefined && primary.toppedUp !== undefined
+              ? h('span', { className: 'dshb-sep' }, '·')
+              : null,
+            primary.toppedUp !== undefined
+              ? h('span', null, t('toppedUp', { amount: formatAmount(primary.toppedUp, primary.currency) }))
+              : null,
+          )
+        : null
+
+    const otherWallets = wallets.filter((wallet: WalletView) => wallet !== primary)
+
+    const lowBanner = isLow
+      ? h(
+          'div',
+          { className: 'dshb-alert', role: 'alert' },
+          h(
+            'div',
+            { className: 'dshb-alert-main' },
+            h('span', { className: 'dshb-alert-title' }, t('lowTitle')),
+            h(
+              'span',
+              { className: 'dshb-alert-text' },
+              t('lowHint', { balance: lowBalanceText, threshold: lowThresholdText }),
+            ),
+          ),
+          topUpUrl === undefined
+            ? null
+            : h(
+                'a',
+                {
+                  className: 'dshb-topup',
+                  href: topUpUrl,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                  onClick: (event: ReactNS.MouseEvent) => event.stopPropagation(),
+                },
+                t('topUp'),
+              ),
+        )
+      : null
 
     const popover =
       open && placement !== null
@@ -365,32 +470,27 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
               h('span', { className: 'dshb-badge' }, sourceText),
             ),
             wallets.length > 0
-              ? wallets.map((wallet) =>
+              ? h(
+                  'div',
+                  { className: 'dshb-hero' },
                   h(
                     'div',
-                    { className: 'dshb-wallet', key: wallet.currency },
-                    h(
-                      'div',
-                      { className: 'dshb-wallet-main' },
-                      h('span', { className: 'dshb-wallet-amount' }, formatAmount(wallet.total, wallet.currency)),
-                      h('span', { className: 'dshb-wallet-code' }, wallet.currency),
-                    ),
-                    wallet.granted !== undefined || wallet.toppedUp !== undefined
-                      ? h(
-                          'div',
-                          { className: 'dshb-wallet-sub' },
-                          wallet.granted !== undefined
-                            ? h('span', null, t('granted', { amount: formatAmount(wallet.granted, wallet.currency) }))
-                            : null,
-                          wallet.granted !== undefined && wallet.toppedUp !== undefined
-                            ? h('span', { className: 'dshb-sep' }, '·')
-                            : null,
-                          wallet.toppedUp !== undefined
-                            ? h('span', null, t('toppedUp', { amount: formatAmount(wallet.toppedUp, wallet.currency) }))
-                            : null,
-                        )
-                      : null,
+                    { className: 'dshb-hero-main' },
+                    h('span', { className: 'dshb-hero-amount' }, valueText),
+                    primary === undefined ? null : h('span', { className: 'dshb-hero-code' }, primary.currency),
                   ),
+                  spendText === null && spendTopUpText === ''
+                    ? null
+                    : h(
+                        'div',
+                        { className: 'dshb-hero-side' },
+                        spendText === null
+                          ? null
+                          : h('span', { className: 'dshb-chip' }, `${t('todaySpend')} ${spendText}`),
+                        spendTopUpText === ''
+                          ? null
+                          : h('span', { className: 'dshb-chip dshb-chip-up' }, `${t('todayTopUp')} ${spendTopUpText}`),
+                      ),
                 )
               : h(
                   'div',
@@ -398,6 +498,35 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
                   h('div', { className: 'dshb-empty-title' }, emptyTitle),
                   emptyHint.length > 0 ? h('div', { className: 'dshb-empty-hint' }, emptyHint) : null,
                 ),
+            lowBanner,
+            primaryBreakdown,
+            otherWallets.map((wallet) =>
+              h(
+                'div',
+                { className: 'dshb-wallet', key: wallet.currency },
+                h(
+                  'div',
+                  { className: 'dshb-wallet-main' },
+                  h('span', { className: 'dshb-wallet-amount' }, formatAmount(wallet.total, wallet.currency)),
+                  h('span', { className: 'dshb-wallet-code' }, wallet.currency),
+                ),
+                wallet.granted !== undefined || wallet.toppedUp !== undefined
+                  ? h(
+                      'div',
+                      { className: 'dshb-wallet-sub' },
+                      wallet.granted !== undefined
+                        ? h('span', null, t('granted', { amount: formatAmount(wallet.granted, wallet.currency) }))
+                        : null,
+                      wallet.granted !== undefined && wallet.toppedUp !== undefined
+                        ? h('span', { className: 'dshb-sep' }, '·')
+                        : null,
+                      wallet.toppedUp !== undefined
+                        ? h('span', null, t('toppedUp', { amount: formatAmount(wallet.toppedUp, wallet.currency) }))
+                        : null,
+                    )
+                  : null,
+              ),
+            ),
             notice.length > 0 ? h('div', { className: 'dshb-notice' }, notice) : null,
             h(
               'div',
@@ -428,6 +557,7 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
         ? portal(popover, document.body)
         : popover
 
-    return h('div', { className: `dshb-root ${wide ? 'dshb-wide' : 'dshb-rail'}` }, trigger, popoverLayer)
+    const rootClass = `dshb-root${wide ? ' dshb-wide' : ' dshb-rail'}${isLow ? ' dshb-low' : ''}`
+    return h('div', { className: rootClass }, trigger, popoverLayer)
   }
 }

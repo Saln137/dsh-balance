@@ -50,6 +50,34 @@ export function formatAmount(raw: string | undefined | null, currency: string): 
 }
 
 /**
+ * 今日消费金额：不带负号（标签已经说明是消费）。
+ *
+ * 两位小数下无法表达「花了几分钱」，所以 0 < x < 0.005 时显示 `<¥0.01`——
+ * 既不谎报 0，也不把 0.0032 显示成 0.00。
+ * @param raw - 累积原值（宿主保留原始精度）。
+ * @param currency - ISO 币种代码。
+ * @returns 例如 `¥0.45`、`<¥0.01`、`¥0.00`。
+ */
+export function formatSpend(raw: string | undefined | null, currency: string): string {
+  const value = parseAmount(raw)
+  if (value === undefined || value <= 0) return formatAmount('0', currency)
+  if (value < 0.005) return `<${currencySymbol(currency)}0.01`
+  return formatAmount(String(value), currency)
+}
+
+/**
+ * 今日充值金额：只在真的有时返回带 `+` 的字符串。
+ * @param raw - 累积原值。
+ * @param currency - ISO 币种代码。
+ * @returns 例如 `+¥100.00`；没有入账时为空字符串。
+ */
+export function formatTopUp(raw: string | undefined | null, currency: string): string {
+  const value = parseAmount(raw)
+  if (value === undefined || value <= 0) return ''
+  return `+${formatAmount(String(value), currency)}`
+}
+
+/**
  * 从钱包列表里挑出紧凑标签要显示的那个。
  *
  * 账户可能同时持有 CNY 与 USD：默认按服务端顺序取第一个（用户主币种通常在前），

@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { currencySymbol, formatAmount, formatClock, parseAmount, pickPrimaryWallet, secondsSince } from '../src/shared/format.ts'
+import { currencySymbol, formatAmount, formatClock, formatSpend, formatTopUp, parseAmount, pickPrimaryWallet, secondsSince } from '../src/shared/format.ts'
 
 describe('currencySymbol', () => {
   it('已知币种给符号，未知币种给代码前缀', () => {
@@ -75,6 +75,38 @@ describe('pickPrimaryWallet', () => {
 
   it('空列表返回 undefined', () => {
     assert.equal(pickPrimaryWallet([], 'auto'), undefined)
+  })
+})
+
+describe('formatSpend', () => {
+  it('正常金额不带正负号（标签已说明是消费）', () => {
+    assert.equal(formatSpend('0.45', 'CNY'), '¥0.45')
+    assert.equal(formatSpend('12.3', 'CNY'), '¥12.30')
+  })
+
+  it('亚分消费显示 <¥0.01，而不是谎报 0.00', () => {
+    assert.equal(formatSpend('0.0032', 'CNY'), '<¥0.01')
+    assert.equal(formatSpend('0.0049', 'USD'), '<$0.01')
+  })
+
+  it('零或缺失显示 0.00', () => {
+    assert.equal(formatSpend('0', 'CNY'), '¥0.00')
+    assert.equal(formatSpend(undefined, 'CNY'), '¥0.00')
+  })
+
+  it('负数（不该出现）按 0 处理，不显示负消费', () => {
+    assert.equal(formatSpend('-1', 'CNY'), '¥0.00')
+  })
+})
+
+describe('formatTopUp', () => {
+  it('有入账时带 + 号', () => {
+    assert.equal(formatTopUp('100', 'CNY'), '+¥100.00')
+  })
+
+  it('没有入账时返回空串（调用方据此不渲染）', () => {
+    assert.equal(formatTopUp('0', 'CNY'), '')
+    assert.equal(formatTopUp(undefined, 'CNY'), '')
   })
 })
 

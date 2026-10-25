@@ -8,12 +8,18 @@
 
 ![侧边栏底部的余额行](docs/footer-row.png)
 
-一行「余额 ¥128.45」，点击展开明细；侧边栏折叠时自动收成 36×36 图标，异常状态在数字旁点一个状态点。
-数字来自宿主进程统一取数：登录账号优先，没有账号登录时退回 `DEEPSEEK_API_KEY` 的官方接口。
+两行：第一行余额，第二行今日消费；点击展开明细。侧边栏折叠时自动收成 36×36 图标，异常状态在数字旁点一个状态点。
+金额低于阈值（默认 ¥2）时整行转红、换成警示图标并显示「余额不足」：
+
+![低余额告警](docs/footer-low.png)
 
 | 明细浮层（正常态） | 明细浮层（取数失败，保留上次数字） |
 | --- | --- |
 | ![浮层](docs/popover-ready.png) | ![取数失败](docs/popover-stale.png) |
+
+| 明细浮层（低余额，账号路由带「去充值」） |
+| --- |
+| ![低余额浮层](docs/popover-low.png) |
 
 | 侧边栏折叠（图标形态） |
 | --- |
@@ -36,9 +42,10 @@
 
 **显示内容：**
 
-- 常驻行：图标 + 「余额」+ 数字（两位小数、千分位、`tabular-nums` 等宽数字）
+- 常驻双行：第一行「余额 + 金额」，第二行「今日消费」（没有数据时不留占位噪音）
+- 低余额（默认 < ¥2）：整行转红、图标换成警示三角并缓慢呼吸、金额加粗，浮层顶部出现横幅与「去充值」
 - 状态点（只在异常时出现）：黄 = 显示的是旧数据、红 = 读取失败、灰 = 未登录/未配置
-- 明细浮层：每个币种一张卡（金额、币种、赠送/充值拆分）、数据来源徽标、更新时间、手动刷新按钮
+- 明细浮层：大号余额、今日消费/充值、低余额横幅、各币种明细（金额、赠送/充值拆分）、数据来源徽标、更新时间、手动刷新
 - 取数失败时：保留最后一次成功的数字并明确标注「显示的是上次成功读取的余额」，**绝不把余额显示成 0**
 
 ## 2. 「实时」是怎么做的
@@ -62,6 +69,17 @@
 - 账号服务与凭据服务都是**软取**：没装账号插件、没配 Key 时插件照常装配，只是如实显示「未登录 / 未配置」并告诉用户去哪里处理。
 - 凭据只经 DSH 的 credentials 服务解析（引用名默认 `DEEPSEEK_API_KEY`），**不读配置文件、不进日志、不出进程**。
 - 响应解析采取「非法即失败」：字段缺失、金额不是数字、`balance_infos` 为空一律报错，不补 0（0 余额和读不到余额是两件事）。
+
+### 今日消费的口径
+
+DeepSeek 没有向本地暴露逐笔账单的接口（DSH 设置里的「用量」只是个跳转链接），所以今日消费用**余额变动**推算：
+
+- 相邻两次读数**余额减少** → 计入今日消费；
+- 相邻两次读数**余额增加** → 计入今日充值/退款（单独显示，不冲抵消费，所以「充 100 花 2」显示消费 2、充值 100）；
+- 跨天（默认按北京时间，可配 `dayTimeZone`）→ 重置基准；
+- 账本落在 `$DSH_HOME/dsh-balance/ledger.json`，重启后当天数据不丢；只在插件运行期间观测，关掉应用的时间段没有读数。
+
+已知边界：充值恰好抵消消费发生在同一次读数间隔内时无法区分方向（余额本身不带方向信息）。这是该口径的固有上限，换来的是不依赖任何私有接口、也不需要硬编码价目表。
 
 状态取值：
 
@@ -89,6 +107,9 @@ failed         读取失败且没有可回退的数据
 | `locale` | `zh-CN` | 账号接口要求的调用方语言（只影响服务端文案） |
 | `displayCurrency` | `auto` | 常驻行显示哪个币种：`auto` / `CNY` / `USD` |
 | `showInRail` | `true` | 侧边栏折叠成图标栏时是否仍显示 |
+| `todaySpend` | `true` | 是否统计并展示今日消费 |
+| `lowBalanceThresholds` | `{ CNY: 2, USD: 0.3 }` | 低余额告警阈值（币种 → 金额），`0` 表示该币种不告警；只写关心的币种 |
+| `dayTimeZone` | `Asia/Shanghai` | 计算「今天」用的时区（DeepSeek 按北京时间计费） |
 | `debug` | `false` | 输出刷新来源等调试日志（不含凭据） |
 
 示例：
@@ -156,7 +177,7 @@ dsh plugin --profile <名字> add github:<owner>/dsh-balance
 
 ```sh
 pnpm install
-pnpm verify        # tsc --noEmit + 51 个单测 + 构建 + 产物契约检查
+pnpm verify        # tsc --noEmit + 83 个单测 + 构建 + 产物契约检查
 ```
 
 GitHub Actions 在每次 push / PR 上跑同一条命令（[.github/workflows/verify.yml](.github/workflows/verify.yml)）。
@@ -195,6 +216,15 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 `GET /dsh-balance/state` 返回 `ready` 且金额与假接口一致、`POST /refresh` 让上游命中数 +1、未知子路径 404、
 断开上游后状态转为 `stale` 且旧数字保留。
 
+同一套脚本还覆盖了这一版新增的行为：
+
+- 假接口每次查询递减余额 → `today.byCurrency.CNY.spent` 随之增长（0.05 → 0.10 → …）；
+- 重启实例后今日消费从 `0.60` 继续累计（账本落盘生效，不归零）；
+- 阈值调到 ¥5 时 `low.active=true` 且界面整行转红、浮层出现「余额不足」横幅；
+- 用假账号服务跑 `source=account` 分支：`topUpUrl` 进快照，横幅出现「去充值」按钮。
+
+`scripts/verify/e2e.mjs` 用 `--expect-low` / `--account` 两个开关分别打开低余额与账号路由的断言。
+
 ## 7. 架构
 
 ```text
@@ -210,7 +240,7 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
                                         └─────────────────────────────────────┘
 ```
 
-- **宿主半侧**（`src/host/`）：`config`（配置归一化）→ `sources`（来源编排）→ `parse`（响应校验）→ `store`（快照与 stale 语义）→ `index`（Cordis 装配、路由、定时器、会话监听）。
+- **宿主半侧**（`src/host/`）：`config`（配置归一化）→ `sources`（来源编排）→ `parse`（响应校验）→ `ledger`（今日消费与低余额判定）→ `store`（快照与 stale 语义）→ `index`（Cordis 装配、路由、定时器、会话监听）。
 - **浏览器半侧**（`src/client/`）：`index`（`__ModuleLoader__.load` 外壳）→ `app`（插件三件套 + 插槽注册）→ `widget`（React 组件）→ `styles`（一次性注入的样式表）→ `locales`（中/英字典）。
 - **共享**（`src/shared/`）：`types`（唯一的线上契约）、`format`（金额/时间格式化，纯函数）。
 
@@ -230,7 +260,20 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
   "error": "…",                    // 仅失败时存在
   "pollMs": 5000,
   "displayCurrency": "auto",
-  "showInRail": true
+  "showInRail": true,
+  "today": {                       // 今日账本（todaySpend=false 或还没读数时是 null）
+    "date": "2026-10-25",          // 按 dayTimeZone（默认北京时间）
+    "byCurrency": {
+      "CNY": { "spent": "0.45", "toppedUp": "0", "startBalance": "3.73" }
+    }
+  },
+  "low": {                         // 低余额告警（未触发时为 null）
+    "active": true,
+    "currency": "CNY",
+    "threshold": "2.00",
+    "balance": "1.28"
+  },
+  "topUpUrl": "https://platform.deepseek.com/top_up"  // 仅账号路由提供的充值页
 }
 ```
 
@@ -239,16 +282,16 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 - 依赖的宿主能力：`webServer`（必需，装配前提）、`credentials`、`deepseekAccount`、`session/event`；浏览器侧 `slots`、`locale`、`sidebar.footer.action` 插槽与 `window.__ModuleLoader__`。
 - 账号服务缺失（例如只用 API Key 的组合）不影响装配，会退到 API Key 路由。
 - `sidebar.footer.action` 在「Windows 标题栏 + 侧边栏折叠」时被平台整体隐藏（`设置` 一起隐藏），这是侧边栏自身的行为，不是本插件额外限制。
-- 只读：不做充值、不做登录跳转。需要登录时提示去「设置 → 账号」。
+- 只读：不发起充值、不代登录。低余额横幅里的「去充值」是账号服务提供的外链（`topUpUrl`），没有该链接时不显示按钮。
 - 失败详情文案为中文（面向当前使用场景）；界面骨架文案已做中/英双语。
 
 ## 9. 目录
 
 ```text
-src/host/        宿主半侧（config / sources / parse / store / index / context）
+src/host/        宿主半侧（config / sources / parse / ledger / store / index / context）
 src/client/      浏览器半侧（index / app / widget / styles / locales / context）
 src/shared/      两侧共享的线上契约与格式化
-test/            51 个纯函数单测（node --test，直接跑 .ts）
+test/            83 个纯函数单测（node --test，直接跑 .ts）
 scripts/         install.mjs、verify-bundles.mjs、verify/（假接口 + e2e + 截图）
 docs/            截图
 .github/         CI（push / PR 跑 pnpm verify）
