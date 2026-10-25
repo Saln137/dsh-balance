@@ -13,7 +13,7 @@
  *
  * 卸载：`node scripts/install.mjs --uninstall`（或手动删 junction + 两处清单项）。
  */
-import { existsSync, lstatSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -99,6 +99,16 @@ if (!options.uninstall && !existsSync(backupPath)) {
 
 writeFileSync(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
 
+/**
+ * 路径比较用的归一化：Windows 大小写不敏感，统一成小写再比。
+ * @param {string} value - 任意路径。
+ * @returns {string} 绝对路径（win32 下小写）。
+ */
+const normalizePath = (value) => {
+  const resolved = resolve(value)
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+}
+
 if (options.uninstall && existsSync(linkPath)) {
   // 只删「链接」；如果 pnpm 装成了实体目录，交给插件管理器移除依赖。
   if (lstatSync(linkPath).isSymbolicLink()) {
@@ -106,8 +116,22 @@ if (options.uninstall && existsSync(linkPath)) {
   } else {
     console.log(`提示：${linkPath} 不是链接（可能是 pnpm 安装的实体目录），请用 dsh plugin 移除依赖。`)
   }
-} else if (!options.uninstall && !existsSync(linkPath)) {
-  symlinkSync(projectRoot, linkPath, 'junction')
+} else if (!options.uninstall) {
+  // 仓库被移动过位置时，旧链接仍指向旧目录：这里改成指向当前仓库，而不是「已存在就不管」。
+  let create = !existsSync(linkPath)
+  if (!create) {
+    if (lstatSync(linkPath).isSymbolicLink()) {
+      const target = realpathSync(linkPath)
+      if (normalizePath(target) !== normalizePath(projectRoot)) {
+        unlinkSync(linkPath)
+        create = true
+        console.log(`链接已改指向：${target} → ${projectRoot}`)
+      }
+    } else {
+      console.log(`提示：${linkPath} 是实体目录（pnpm 安装），未改动；如需改指向请先 dsh plugin remove。`)
+    }
+  }
+  if (create) symlinkSync(projectRoot, linkPath, 'junction')
 }
 
 console.log(options.uninstall ? '已从 profile 移除：' : '已安装到 profile：')
