@@ -318,7 +318,9 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
     const topUpUrl = view?.topUpUrl
 
     // 余额流速：只在「数据确实是新的」时候演特效，过期/失败一律静默。
-    const flowLevel = view !== null && view.status === 'ready' && view.flow !== null ? view.flow.level : 0
+    // `flow` 用宽松判空：宿主是旧版本时快照里没有这个键（前后端可以独立升级）。
+    const flow = view?.flow ?? null
+    const flowLevel = view !== null && view.status === 'ready' && flow !== null ? flow.level : 0
     const flowClass = flowLevel > 0 ? ` dshb-flow-${flowLevel}` : ''
 
     const sourceText =

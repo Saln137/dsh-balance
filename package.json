@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "DeepSeek Harness 插件：在桌面端侧边栏底部常驻实时显示账号余额。",
   "keywords": [
