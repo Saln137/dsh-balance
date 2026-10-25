@@ -2,3 +2,6 @@ node_modules/
 lib/
 *.log
 .DS_Store
+
+# 打包产物（pnpm release 生成的 tgz 只作为 Release 附件，不进仓库）
+*.tgz

@@ -11,6 +11,14 @@
     "cordis"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Saln137/dsh-balance.git"
+  },
+  "homepage": "https://github.com/Saln137/dsh-balance#readme",
+  "bugs": {
+    "url": "https://github.com/Saln137/dsh-balance/issues"
+  },
   "type": "module",
   "main": "lib/index.js",
   "exports": {
