@@ -91,41 +91,39 @@ const STYLES = `
 
 .dshb-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-}
-
-/* 第二行始终占位，避免今日数据到达时行高跳动。 */
-.dshb-row-sub {
-  min-height: 14px;
 }
 
 .dshb-label {
   flex: none;
   color: var(--dsw-alias-label-primary, inherit);
-}
-
-.dshb-value {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
 }
 
-.dshb-today {
-  margin-left: auto;
+/* 第二行（今日消费）始终占位，避免数据到达时行高跳动。 */
+.dshb-sub {
+  min-height: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary, inherit);
   font-size: 11px;
   line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 金额独立成右列、随整行垂直居中（不再被第二行顶到上面）。 */
+.dshb-value {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -378,6 +376,11 @@ const STYLES = `
 
 .dshb-sep {
   color: var(--dsw-alias-label-tertiary, inherit);
+}
+
+/* 主币种分项直接跟在 hero 下面，给下方分隔线留一点呼吸。 */
+.dshb-breakdown {
+  padding-bottom: 8px;
 }
 
 .dshb-empty {

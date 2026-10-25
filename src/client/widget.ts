@@ -363,7 +363,8 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
 
     const stateDot = tone === 'ok' ? null : h('span', { className: `dshb-dot dshb-dot-${tone}`, 'aria-hidden': 'true' })
 
-    // 双行内容：没有今日数据时第二行保留空位，避免展开/收起时行高跳动。
+    // 左列两行：余额（+ 低余额标签）/ 今日消费；金额独立成右列并垂直居中，
+    // 这样视觉重心落在整行中央，而不是被第二行顶到上面去。
     const textBlock = wide
       ? h(
           'span',
@@ -372,13 +373,12 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
             'span',
             { className: 'dshb-row' },
             h('span', { className: 'dshb-label' }, t('label')),
-            h('span', { className: 'dshb-value' }, valueText),
+            isLow ? h('span', { className: 'dshb-low-tag' }, t('lowTag')) : null,
           ),
           h(
             'span',
-            { className: 'dshb-row dshb-row-sub' },
-            isLow ? h('span', { className: 'dshb-low-tag' }, t('lowTag')) : null,
-            spendText !== null ? h('span', { className: 'dshb-today' }, `${t('today')} ${spendText}`) : null,
+            { className: 'dshb-sub' },
+            spendText !== null ? `${t('today')} ${spendText}` : '',
           ),
         )
       : null
@@ -398,6 +398,7 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
       },
       h('span', { className: 'dshb-icon', 'aria-hidden': 'true' }, iconNode),
       textBlock,
+      wide ? h('span', { className: 'dshb-value' }, valueText) : null,
       stateDot,
     )
 
@@ -406,7 +407,7 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
       primary !== undefined && (primary.granted !== undefined || primary.toppedUp !== undefined)
         ? h(
             'div',
-            { className: 'dshb-wallet-sub' },
+            { className: 'dshb-wallet-sub dshb-breakdown' },
             primary.granted !== undefined
               ? h('span', null, t('granted', { amount: formatAmount(primary.granted, primary.currency) }))
               : null,
