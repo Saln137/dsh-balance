@@ -2,6 +2,10 @@
 
 > 在 DeepSeek Harness 桌面端**侧边栏底部常驻显示账号余额**的插件。
 
+[![verify](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml/badge.svg)](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml)
+[![release](https://img.shields.io/github/v/release/Saln137/dsh-balance)](https://github.com/Saln137/dsh-balance/releases)
+[![license](https://img.shields.io/github/license/Saln137/dsh-balance)](LICENSE)
+
 ![侧边栏底部的余额行](docs/footer-row.png)
 
 一行「余额 ¥128.45」，点击展开明细；侧边栏折叠时自动收成 36×36 图标，异常状态在数字旁点一个状态点。
