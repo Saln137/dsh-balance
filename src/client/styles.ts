@@ -285,7 +285,9 @@ const STYLES = `
   padding: 12px;
   border: 0;
   border-radius: var(--dsw-radius-lg, 16px);
-  background: var(--dsw-specific-menu, #f8f9fa);
+  /* 必须不透明：--dsw-specific-menu 是 58% 透明度的菜单材质（依赖背后的毛玻璃），
+     这里没有那层 backdrop，直接用浮层表面令牌（HoverCard 同款，浅色纯白/深色纯黑）。 */
+  background: var(--dsw-alias-bg-layer-1, #ffffff);
   box-shadow: var(--dsw-elevation-panel, 0 8px 32px rgba(0, 0, 0, 0.18));
   color: var(--dsw-alias-label-primary, inherit);
   font-family: inherit;

@@ -131,6 +131,14 @@ await evaluate(`document.querySelector('.dshb-trigger')?.click()`)
 await sleep(900)
 await shot(`${outPrefix}-popover.png`, { x: 0, y: 470, width: 320, height: 380, scale: 3 })
 console.log(`popover: ${await evaluate(`document.querySelector('.dshb-pop')?.innerText ?? 'missing'`)}`)
+console.log(
+  `popover background: ${await evaluate(`(() => {
+    const pop = document.querySelector('.dshb-pop')
+    if (!pop) return 'missing'
+    const style = getComputedStyle(pop)
+    return style.backgroundColor
+  })()`)}`,
+)
 
 // 减少动态偏好下不应再有扫光动画。
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
