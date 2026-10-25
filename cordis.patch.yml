@@ -29,3 +29,12 @@
         lowBalanceThresholds:
           CNY: 2
           USD: 0.3
+        # 余额流速：花得越快，行表面扫光越急（L1/L2/L3 三档）
+        # thresholds 是各档的速率下界（元/分钟），越界才升档；只想关掉就写 enabled: false
+        flow:
+          enabled: true
+          windowSeconds: 60
+          holdMs: 8000
+          thresholds:
+            CNY: [0.02, 0.15, 0.60]
+            USD: [0.003, 0.02, 0.09]

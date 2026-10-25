@@ -44,6 +44,7 @@
 
 - 常驻双行：第一行「余额 + 金额」，第二行「今日消费」（没有数据时不留占位噪音）
 - 低余额（默认 < ¥2）：整行转红、图标换成警示三角并缓慢呼吸、金额加粗，浮层顶部出现横幅与「去充值」
+- 余额流速：花得越快，行表面掠过一道蓝色光带（详见 [2.1](#flow-effect)）
 - 状态点（只在异常时出现）：黄 = 显示的是旧数据、红 = 读取失败、灰 = 未登录/未配置
 - 明细浮层：大号余额、今日消费/充值、低余额横幅、各币种明细（金额、赠送/充值拆分）、数据来源徽标、更新时间、手动刷新
 - 取数失败时：保留最后一次成功的数字并明确标注「显示的是上次成功读取的余额」，**绝不把余额显示成 0**
@@ -57,6 +58,52 @@
 3. **后台定时器**（默认 60 秒）+ 浏览器侧每 5 秒轮询宿主快照（本地内存，不打上游）、页面重新可见/获得焦点时补一次、用户点「刷新」时走 `POST /refresh`。
 
 宿主是**唯一的取数点**：多个窗口/标签页共享同一份快照，不会各拿一个定时器去刷官方接口。
+
+<a id="flow-effect"></a>
+### 2.1 余额流速与扫光特效
+
+花得越快，行表面掠过一道光带——「余额在流逝」这件事不用数字也能看见：
+
+![流速扫光](docs/flow-sheen.png)
+
+**速率怎么算**（宿主侧，`src/host/flow.ts`，纯函数、可单测）：
+
+- 在最近 `windowSeconds`（默认 60s）的采样里取首尾余额，`rate = 净减少 / 分钟`；
+- 余额**上升**视为充值/退款 → 窗口重开、速率归零（不会算出「负消耗」）；
+- 采样跨度不足窗口一半（且至少 10s）时不报速率——宁可不演，也不给假数据；
+- 两次读数间隔 > 30 分钟视为断档（睡眠/关机），不把停机时间算成消费；
+- 速率做 EMA 平滑；整个窗口无消费时按 ×0.25 快速衰减，停手后特效不会拖太久；
+- 档位切换有 `holdMs`（默认 8s）保持期，避免采样抖动导致闪烁。
+
+**三档只差三个参数**（宽度 / 周期 / 强度），光带 = 品牌蓝（`--dsw-alias-state-business-primary`）+ 白色高光核心，纵向渐隐后像一道光扫过：
+
+| 档位 | 速率下界（CNY） | 光带宽度 | 周期 |
+| --- | --- | --- | --- |
+| L1 慢 | 0.02 /min | 28% | 4.6s |
+| L2 中 | 0.15 /min | 32% | 2.8s |
+| L3 快 | 0.60 /min | 36% | 1.8s |
+
+**约束**：
+
+- 只在 `status === 'ready'` 时出现；`stale` / `failed` / `loading` 一律不演，避免暗示「这是实时数据」；
+- 低余额时扫光自动换成告警红（`--dsw-alias-state-error-primary`），红色始终只属于「余额不足」；
+- 侧边栏折叠时同一条光带跑在 36×36 图标上；
+- `prefers-reduced-motion: reduce` 下整条关闭（余额变化本身仍然可见）；
+- 纯 CSS：一个伪元素 + `transform` 动画，零 JS 循环、零额外 DOM、不挡点击。
+
+配置（可省）：
+
+```yaml
+flow:
+  enabled: true
+  windowSeconds: 60
+  holdMs: 8000
+  thresholds:          # [L1, L2, L3] 的速率下界（元/分钟）
+    CNY: [0.02, 0.15, 0.60]
+    USD: [0.003, 0.02, 0.09]
+```
+
+速率数值本身**不在界面上显示**（产品决定），但保留在契约里便于调试与后续扩展。
 
 ## 3. 数据来源
 
@@ -110,6 +157,7 @@ failed         读取失败且没有可回退的数据
 | `todaySpend` | `true` | 是否统计并展示今日消费 |
 | `lowBalanceThresholds` | `{ CNY: 2, USD: 0.3 }` | 低余额告警阈值（币种 → 金额），`0` 表示该币种不告警；只写关心的币种 |
 | `dayTimeZone` | `Asia/Shanghai` | 计算「今天」用的时区（DeepSeek 按北京时间计费） |
+| `flow` | 见 [2.1](#flow-effect) | 流速扫光：`enabled` / `windowSeconds` / `holdMs` / `thresholds` |
 | `debug` | `false` | 输出刷新来源等调试日志（不含凭据） |
 
 示例：
@@ -177,7 +225,7 @@ dsh plugin --profile <名字> add github:<owner>/dsh-balance
 
 ```sh
 pnpm install
-pnpm verify        # tsc --noEmit + 83 个单测 + 构建 + 产物契约检查
+pnpm verify        # tsc --noEmit + 99 个单测 + 构建 + 产物契约检查
 ```
 
 GitHub Actions 在每次 push / PR 上跑同一条命令（[.github/workflows/verify.yml](.github/workflows/verify.yml)）。
@@ -267,6 +315,13 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
       "CNY": { "spent": "0.45", "toppedUp": "0", "startBalance": "3.73" }
     }
   },
+  "flow": {                        // 余额流速（数据不足时为 null），驱动表面扫光
+    "currency": "CNY",
+    "ratePerMinute": "0.4200",     // 不展示，仅调试/扩展
+    "level": 2,                    // 0 | 1 | 2 | 3
+    "windowSeconds": 60,
+    "samples": 9
+  },
   "low": {                         // 低余额告警（未触发时为 null）
     "active": true,
     "currency": "CNY",
@@ -288,10 +343,10 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 ## 9. 目录
 
 ```text
-src/host/        宿主半侧（config / sources / parse / ledger / store / index / context）
+src/host/        宿主半侧（config / sources / parse / ledger / flow / store / index / context）
 src/client/      浏览器半侧（index / app / widget / styles / locales / context）
 src/shared/      两侧共享的线上契约与格式化
-test/            83 个纯函数单测（node --test，直接跑 .ts）
+test/            99 个纯函数单测（node --test，直接跑 .ts）
 scripts/         install.mjs、verify-bundles.mjs、verify/（假接口 + e2e + 截图）
 docs/            截图
 .github/         CI（push / PR 跑 pnpm verify）

@@ -93,4 +93,44 @@ describe('normalizeConfig', () => {
     assert.equal(normalizeConfig({ dayTimeZone: 'Mars/Olympus' }).dayTimeZone, 'Asia/Shanghai')
     assert.equal(normalizeConfig({ dayTimeZone: 42 }).dayTimeZone, 'Asia/Shanghai')
   })
+
+  it('流速默认：开启、60s 窗口、8s 保持期、人民币三档', () => {
+    const flow = normalizeConfig(undefined).flow
+    assert.equal(flow.enabled, true)
+    assert.equal(flow.windowSeconds, 60)
+    assert.equal(flow.holdMs, 8_000)
+    assert.deepEqual(flow.thresholds['CNY'], [0.02, 0.15, 0.6])
+  })
+
+  it('流速阈值只覆盖给出的币种，非法项整条忽略', () => {
+    const flow = normalizeConfig({
+      flow: {
+        enabled: false,
+        windowSeconds: 30,
+        holdMs: 0,
+        thresholds: {
+          CNY: [1, 2, 3],
+          USD: [3, 2, 1],
+          EUR: ['a', 'b', 'c'],
+          JPY: [1, 2],
+          'not a code': [1, 2, 3],
+        },
+      },
+    }).flow
+    assert.equal(flow.enabled, false)
+    assert.equal(flow.windowSeconds, 30)
+    assert.equal(flow.holdMs, 0)
+    assert.deepEqual(flow.thresholds['CNY'], [1, 2, 3], '合法项覆盖默认')
+    assert.deepEqual(flow.thresholds['USD'], [0.003, 0.02, 0.09], '降序非法 → 保留默认')
+    assert.equal('EUR' in flow.thresholds, false)
+    assert.equal('JPY' in flow.thresholds, false)
+    assert.equal('not a code' in flow.thresholds, false)
+  })
+
+  it('流速窗口与保持期夹紧', () => {
+    assert.equal(normalizeConfig({ flow: { windowSeconds: 1 } }).flow.windowSeconds, 20)
+    assert.equal(normalizeConfig({ flow: { windowSeconds: 99_999 } }).flow.windowSeconds, 600)
+    assert.equal(normalizeConfig({ flow: { holdMs: -5 } }).flow.holdMs, 0)
+    assert.equal(normalizeConfig({ flow: { holdMs: 999_999 } }).flow.holdMs, 60_000)
+  })
 })

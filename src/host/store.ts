@@ -7,7 +7,7 @@
  *   「上次成功读到的余额 + 取数失败」，而不是凭空出现的 0）；
  * - 失败且从没成功过 → 直接呈失败状态。
  */
-import type { BalanceSource, BalanceView, DailySpend, LowBalance, WalletView } from '../shared/types.ts'
+import type { BalanceSource, BalanceView, DailySpend, FlowView, LowBalance, WalletView } from '../shared/types.ts'
 
 /** 一次失败携带的原因。 */
 export interface BalanceFailure {
@@ -22,6 +22,8 @@ export interface BalanceExtras {
   today: DailySpend | null
   /** 低余额告警（`null` = 未触发）。 */
   low: LowBalance | null
+  /** 余额流速（`null` = 采样不足或特效被关闭）。 */
+  flow: FlowView | null
   /** 账号服务提供的充值页。 */
   topUpUrl?: string
 }
@@ -62,6 +64,7 @@ export function createBalanceStore(options: {
     showInRail: options.showInRail,
     today: null,
     low: null,
+    flow: null,
   }
 
   return {
@@ -88,6 +91,7 @@ export function createBalanceStore(options: {
         checkedAt: at,
         today: extras.today,
         low: extras.low,
+        flow: extras.flow,
       }
       // exactOptionalPropertyTypes：只有确实没有错误时才移除这两个键。
       delete next.error

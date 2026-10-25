@@ -109,7 +109,23 @@ if (expectLow) {
   console.log(`✓ 低余额告警生效（阈值 ${refreshed.low.threshold}，当前 ${refreshed.low.balance}）`)
 }
 
-// 7) 错误路径：未知子路径 404。
+// 7) 流速：持续消费（假接口每次查询都掉钱）后应出现档位。
+if (!expectAccount) {
+  let latest = refreshed
+  for (let attempt = 0; attempt < 12 && (latest.flow?.level ?? 0) === 0; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5_000))
+    const response = await fetch(`${base}/dsh-balance/refresh`, { method: 'POST', headers: { cookie } })
+    latest = await response.json()
+  }
+  assert.ok(latest.flow !== null, '持续消费后应给出流速快照')
+  assert.equal(latest.flow.currency, 'CNY')
+  assert.ok(latest.flow.level > 0, `持续消费后档位应大于 0（实际 ${latest.flow?.level}）`)
+  console.log(
+    `✓ 流速档位 L${latest.flow.level}（${latest.flow.ratePerMinute}/min，窗口 ${latest.flow.windowSeconds}s，采样 ${latest.flow.samples}）`,
+  )
+}
+
+// 8) 错误路径：未知子路径 404。
 const missing = await fetch(`${base}/dsh-balance/unknown`, { headers: { cookie } })
 assert.equal(missing.status, 404)
 console.log('✓ 未知子路径返回 404')

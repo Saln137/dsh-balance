@@ -112,10 +112,32 @@ console.log(
 )
 
 await shot(`${outPrefix}-footer.png`, { x: 0, y: 750, width: 300, height: 150, scale: 3 })
+
+// 扫光是动画：截图前把所有动画暂停在同一相位，否则会截到「光带在行外」的瞬间。
+const frozen = await evaluate(`(() => {
+  const animations = document.getAnimations()
+  animations.forEach((animation) => {
+    const timing = animation.effect?.getComputedTiming?.()
+    const duration = typeof timing?.duration === 'number' ? timing.duration : 2000
+    animation.pause()
+    animation.currentTime = duration * 0.42
+  })
+  return animations.length
+})()`)
+console.log(`frozen animations: ${frozen}`)
+
+await shot(`${outPrefix}-sheen.png`, { x: 0, y: 750, width: 300, height: 150, scale: 3 })
 await evaluate(`document.querySelector('.dshb-trigger')?.click()`)
 await sleep(900)
 await shot(`${outPrefix}-popover.png`, { x: 0, y: 470, width: 320, height: 380, scale: 3 })
 console.log(`popover: ${await evaluate(`document.querySelector('.dshb-pop')?.innerText ?? 'missing'`)}`)
+
+// 减少动态偏好下不应再有扫光动画。
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+await sleep(300)
+console.log(
+  `reduced-motion animations: ${await evaluate(`document.getAnimations().filter((a) => a.animationName?.startsWith('dshb-sheen')).length`)}`,
+)
 
 socket.close()
 process.exit(0)

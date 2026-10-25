@@ -70,6 +70,24 @@ export interface LowBalance {
   balance: string
 }
 
+/**
+ * 余额流速快照：`0–3` 档，驱动界面上的「表面扫光」。
+ *
+ * 速率本身**不在界面上显示**（产品决定），保留在契约里便于调试与后续扩展。
+ */
+export interface FlowView {
+  /** 被跟踪的币种（当前展示的那个钱包）。 */
+  currency: string
+  /** EMA 平滑后的速率（¥/分钟，原始精度字符串）。 */
+  ratePerMinute: string
+  /** 0 = 静默（无特效），1–3 = 扫光强度。 */
+  level: 0 | 1 | 2 | 3
+  /** 观察窗口（秒），随快照下发便于排查。 */
+  windowSeconds: number
+  /** 窗口内的有效采样数。 */
+  samples: number
+}
+
 /** `GET /dsh-balance/state` 的响应体，也是插槽组件渲染的唯一数据源。 */
 export interface BalanceView {
   status: BalanceStatus
@@ -91,6 +109,8 @@ export interface BalanceView {
   today: DailySpend | null
   /** 低余额告警；没有可用余额时为 null。 */
   low: LowBalance | null
+  /** 余额流速；采样不足以判定时为 null。 */
+  flow: FlowView | null
   /** 账号服务提供的充值页地址（仅账号路由且服务提供时存在）。 */
   topUpUrl?: string
 }

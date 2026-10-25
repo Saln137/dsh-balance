@@ -317,6 +317,10 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
     const lowThresholdText = low === null ? '' : formatAmount(low.threshold, low.currency)
     const topUpUrl = view?.topUpUrl
 
+    // 余额流速：只在「数据确实是新的」时候演特效，过期/失败一律静默。
+    const flowLevel = view !== null && view.status === 'ready' && view.flow !== null ? view.flow.level : 0
+    const flowClass = flowLevel > 0 ? ` dshb-flow-${flowLevel}` : ''
+
     const sourceText =
       view === null || view.source === 'none'
         ? t('source.none')
@@ -558,7 +562,7 @@ export function createBalanceWidget(deps: WidgetDeps): ReactNS.ComponentType<Wid
         ? portal(popover, document.body)
         : popover
 
-    const rootClass = `dshb-root${wide ? ' dshb-wide' : ' dshb-rail'}${isLow ? ' dshb-low' : ''}`
+    const rootClass = `dshb-root${wide ? ' dshb-wide' : ' dshb-rail'}${isLow ? ' dshb-low' : ''}${flowClass}`
     return h('div', { className: rootClass }, trigger, popoverLayer)
   }
 }

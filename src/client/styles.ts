@@ -150,6 +150,100 @@ const STYLES = `
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93a3a) 16%, transparent);
 }
 
+/* ---- 余额流速：表面扫光（品牌蓝打底 + 白色高光核心，从左向右掠过） ----
+   三档只差宽度/周期/强度；只动 transform，不触发重排。 */
+.dshb-root.dshb-flow-1 {
+  --dshb-sheen-w: 28%;
+  --dshb-sheen-d: 4.6s;
+  --dshb-sheen-core: 0.22;
+  --dshb-sheen-a: 6%;
+  --dshb-sheen-b: 14%;
+}
+
+.dshb-root.dshb-flow-2 {
+  --dshb-sheen-w: 32%;
+  --dshb-sheen-d: 2.8s;
+  --dshb-sheen-core: 0.34;
+  --dshb-sheen-a: 9%;
+  --dshb-sheen-b: 22%;
+}
+
+.dshb-root.dshb-flow-3 {
+  --dshb-sheen-w: 36%;
+  --dshb-sheen-d: 1.8s;
+  --dshb-sheen-core: 0.46;
+  --dshb-sheen-a: 12%;
+  --dshb-sheen-b: 30%;
+}
+
+.dshb-root.dshb-flow-1,
+.dshb-root.dshb-flow-2,
+.dshb-root.dshb-flow-3 {
+  --dshb-sheen-accent: var(--dsw-alias-state-business-primary, #4176e6);
+}
+
+/* 低余额时扫光换成告警红：红色只属于「余额不足」，两个语义不打架。 */
+.dshb-root.dshb-low {
+  --dshb-sheen-accent: var(--dsw-alias-state-error-primary, #d93a3a);
+}
+
+.dshb-root.dshb-flow-1 .dshb-trigger::after,
+.dshb-root.dshb-flow-2 .dshb-trigger::after,
+.dshb-root.dshb-flow-3 .dshb-trigger::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--dshb-sheen-w);
+  background:
+    linear-gradient(
+      100deg,
+      transparent 40%,
+      rgba(255, 255, 255, var(--dshb-sheen-core)) 50%,
+      transparent 60%
+    ),
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      color-mix(in srgb, var(--dshb-sheen-accent) var(--dshb-sheen-a), transparent) 24%,
+      color-mix(in srgb, var(--dshb-sheen-accent) var(--dshb-sheen-b), transparent) 50%,
+      color-mix(in srgb, var(--dshb-sheen-accent) var(--dshb-sheen-a), transparent) 72%,
+      transparent 100%
+    );
+  transform: translateX(-150%) skewX(-16deg);
+  animation: dshb-sheen var(--dshb-sheen-d) linear infinite;
+  opacity: 0;
+  pointer-events: none;
+  /* 纵向渐隐：光带上下边缘融进底色，避免看起来像一块贴上去的蓝色色块。 */
+  mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+}
+
+/* 折叠成 36×36 图标时：同一条光带，窄一点、淡一点。 */
+.dshb-root.dshb-rail.dshb-flow-1 .dshb-trigger::after,
+.dshb-root.dshb-rail.dshb-flow-2 .dshb-trigger::after,
+.dshb-root.dshb-rail.dshb-flow-3 .dshb-trigger::after {
+  width: 72%;
+}
+
+@keyframes dshb-sheen {
+  0% {
+    transform: translateX(-150%) skewX(-16deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(330%) skewX(-16deg);
+    opacity: 0;
+  }
+}
+
 .dshb-root.dshb-low .dshb-icon {
   color: var(--dsw-alias-state-error-primary, #d93a3a);
   animation: dshb-alert-pulse 2.4s ease-in-out infinite;
@@ -470,6 +564,13 @@ const STYLES = `
   .dshb-spin { animation: none; }
   .dshb-trigger { transition: none; }
   .dshb-root.dshb-low .dshb-icon { animation: none; }
+  /* 减少动态偏好：扫光整条去掉（余额变化本身仍然可见）。 */
+  .dshb-root.dshb-flow-1 .dshb-trigger::after,
+  .dshb-root.dshb-flow-2 .dshb-trigger::after,
+  .dshb-root.dshb-flow-3 .dshb-trigger::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 `
 

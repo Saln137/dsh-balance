@@ -22,6 +22,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { normalizeConfig } from './config.ts'
 import type { HostContext } from './context.ts'
+import { createFlowTracker } from './flow.ts'
 import { applyReading, dayOf, detectLow, loadLedger, saveLedger, toDailySpend } from './ledger.ts'
 import { createBalanceStore } from './store.ts'
 import { readBalance, type AccountLike } from './sources.ts'
@@ -104,6 +105,9 @@ export function apply(ctx: HostContext, rawConfig?: unknown): void {
   const ledgerPath = join(process.env['DSH_HOME'] ?? join(homedir(), '.dsh'), 'dsh-balance', 'ledger.json')
   let ledger = loadLedger(ledgerPath)
 
+  // 流速跟踪器：只在内存里滚采样，重启后重新积累（不落盘，避免把停机时间算成消费）。
+  const flowTracker = createFlowTracker(config.flow, config.displayCurrency)
+
   let disposed = false
   let inFlight: Promise<void> | undefined
   let settleTimer: ReturnType<typeof setTimeout> | undefined
@@ -168,6 +172,7 @@ export function apply(ctx: HostContext, rawConfig?: unknown): void {
         store.succeed(result.wallets, result.source, at, {
           today: config.todaySpend ? toDailySpend(ledger, date) : null,
           low: detectLow(result.wallets, config.lowBalanceThresholds),
+          flow: flowTracker.observe(result.wallets, at),
           ...(topUpUrl === undefined ? {} : { topUpUrl }),
         })
         ctx.logger?.debug?.(`[${name}] 余额已刷新（${reason}）：${result.source} / ${result.wallets.length} 个钱包`)

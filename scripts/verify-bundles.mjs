@@ -108,11 +108,13 @@ const state = JSON.parse(stateRes.body)
 assert.ok(typeof state.status === 'string', '快照必须带 status')
 assert.equal(state.pollMs, 5_000, '快照必须下发轮询间隔')
 assert.ok(Array.isArray(state.wallets), '快照必须带 wallets 数组')
-// 新增的派生字段：今日账本与低余额告警（没有成功读数时是 null，但键必须在）。
+// 新增的派生字段：今日账本、低余额告警、余额流速（没有成功读数时是 null，但键必须在）。
 assert.ok('today' in state, '快照必须带 today 字段')
 assert.ok('low' in state, '快照必须带 low 字段')
+assert.ok('flow' in state, '快照必须带 flow 字段')
 assert.equal(state.today, null)
 assert.equal(state.low, null)
+assert.equal(state.flow, null)
 
 const notFound = fakeResponse()
 await routes[0].handler({ method: 'GET', url: '/dsh-balance/nope' }, notFound)

@@ -5,6 +5,7 @@
  * 这里做一次收敛（校验 + 夹紧 + 兜底），让后面的取数逻辑只面对合法值，
  * 并且**绝不因为一个配置笔误就让插件装配失败**（装配失败 = 整个插件不可见）。
  */
+import type { FlowConfig } from './flow.ts'
 
 /** 余额数据源策略。 */
 export type BalanceSourceMode = 'auto' | 'account' | 'api-key'
@@ -35,8 +36,16 @@ export interface BalanceConfig {
   lowBalanceThresholds: Record<string, number>
   /** 计算「今天」用的时区（DeepSeek 按北京时间计费）。 */
   dayTimeZone: string
+  /** 余额流速与扫光特效。 */
+  flow: FlowConfig
   /** 是否输出调试日志（只输出状态，绝不输出凭据）。 */
   debug: boolean
+}
+
+/** 默认流速阈值：[L1, L2, L3] 的速率下界（¥/分钟）。 */
+export const DEFAULT_FLOW_THRESHOLDS: Readonly<Record<string, readonly [number, number, number]>> = {
+  CNY: [0.02, 0.15, 0.6],
+  USD: [0.003, 0.02, 0.09],
 }
 
 /** 默认低余额阈值：人民币 2 元、美元 0.3 元；余额低于它就开始醒目提示。 */
@@ -58,6 +67,12 @@ export const DEFAULT_CONFIG: BalanceConfig = {
   todaySpend: true,
   lowBalanceThresholds: { ...DEFAULT_LOW_BALANCE },
   dayTimeZone: 'Asia/Shanghai',
+  flow: {
+    enabled: true,
+    windowSeconds: 60,
+    holdMs: 8_000,
+    thresholds: { CNY: [0.02, 0.15, 0.6], USD: [0.003, 0.02, 0.09] },
+  },
   debug: false,
 }
 
@@ -141,6 +156,46 @@ function readTimeZone(value: unknown, fallback: string): string {
 }
 
 /**
+ * 归一化流速配置。
+ *
+ * 阈值必须是「三个非负、递增的数字」（L1/L2/L3 的下界）；写错的币种整条忽略，
+ * 不让一个笔误把整套特效关掉。
+ * @param value - 原始值（YAML 对象）。
+ * @returns 流速配置。
+ */
+function readFlow(value: unknown): FlowConfig {
+  const source = isRecord(value) ? value : {}
+  const thresholds: Record<string, [number, number, number]> = {
+    CNY: [0.02, 0.15, 0.6],
+    USD: [0.003, 0.02, 0.09],
+  }
+
+  const rawThresholds = source['thresholds']
+  if (isRecord(rawThresholds)) {
+    for (const [rawKey, rawEntry] of Object.entries(rawThresholds)) {
+      const currency = rawKey.trim().toUpperCase()
+      if (!/^[A-Z]{3,5}$/u.test(currency)) continue
+      if (!Array.isArray(rawEntry) || rawEntry.length !== 3) continue
+      const values = rawEntry.map((entry) =>
+        typeof entry === 'number' ? entry : typeof entry === 'string' ? Number(entry) : Number.NaN,
+      )
+      const [l1 = Number.NaN, l2 = Number.NaN, l3 = Number.NaN] = values
+      if (![l1, l2, l3].every((entry) => Number.isFinite(entry) && entry >= 0)) continue
+      if (!(l1 <= l2 && l2 <= l3)) continue
+      thresholds[currency] = [l1, l2, l3]
+    }
+  }
+
+  return {
+    enabled: typeof source['enabled'] === 'boolean' ? source['enabled'] : true,
+    // 20 秒是下限：再短就没有「流速」的统计意义（采样跨度要求窗口的一半）。
+    windowSeconds: readInt(source['windowSeconds'], 60, 20, 600),
+    holdMs: readInt(source['holdMs'], 8_000, 0, 60_000),
+    thresholds,
+  }
+}
+
+/**
  * 把原始 `config` 归一化。
  * @param raw - Loader 传入的配置（可能是 undefined、字符串或对象）。
  * @returns 完整配置，字段全部合法。
@@ -175,6 +230,7 @@ export function normalizeConfig(raw: unknown): BalanceConfig {
     todaySpend: typeof source['todaySpend'] === 'boolean' ? source['todaySpend'] : DEFAULT_CONFIG.todaySpend,
     lowBalanceThresholds: readThresholds(source['lowBalanceThresholds']),
     dayTimeZone: readTimeZone(source['dayTimeZone'], DEFAULT_CONFIG.dayTimeZone),
+    flow: readFlow(source['flow']),
     debug: source['debug'] === true,
   }
 }
