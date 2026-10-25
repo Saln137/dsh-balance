@@ -1,0 +1,27 @@
+# 推送 / PR 时跑一遍完整验证：类型检查 + 51 个单测 + 构建 + 产物契约检查。
+# 与本地 `pnpm verify` 是同一条命令，避免 CI 与本地出现两套口径。
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm verify

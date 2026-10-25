@@ -1,0 +1,24 @@
+# dsh-balance 的 bundle 配置层。
+#
+# 用户在 profile 里列出本包后，DSH 启动时会按 bundle 层栈把这一层叠上去：
+#   - `id` 必须全局唯一（与包名一致），profile 覆盖时按它定位；
+#   - `name: 'dsh-balance'` 解析到 package.json 的 main（宿主半侧）；
+#   - 因为 package.json 声明了 `dsh.client`，DSH 同时把本包登记为浏览器插件，
+#     页面会从 /plugins/dsh-balance/client.js 取客户端半侧。
+#
+# `config` 全部可省略（宿主侧有默认值并做校验）；下面列出常用项便于按需打开。
+- insert:
+    - id: dsh-balance
+      name: 'dsh-balance'
+      config:
+        # auto：先查已登录的 DeepSeek 账号余额，取不到再退回 API Key 路由
+        # 其余可选值：account（只查账号）/ api-key（只查 API Key）
+        source: auto
+        # API Key 路由使用的凭据引用名（credentials 服务解析，不读配置文件）
+        apiKeyRef: DEEPSEEK_API_KEY
+        # 后台刷新间隔（秒，最小 15）；浏览器侧的轮询间隔由宿主下发
+        refreshIntervalSeconds: 60
+        # 紧凑标签显示哪个币种：auto（钱包顺序第一个）/ CNY / USD
+        displayCurrency: auto
+        # 侧边栏折叠成图标栏时是否仍然显示（图标 + 状态点）
+        showInRail: true
