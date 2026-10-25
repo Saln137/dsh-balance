@@ -187,6 +187,10 @@ node scripts/verify/e2e.mjs "http://127.0.0.1:6399/?token=<启动 URL 里的令�
 node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 ```
 
+同一套检查也在**真实 desktop 实例**上跑过（重启后）：`GET /dsh-balance/state` 返回
+`{"status":"ready","source":"account",…}` —— 走的是登录账号路由（`deepseekAccount.getBalance`），
+侧边栏底部的数字随本会话的计费消耗同步变化；`POST /refresh` 会推进 `checkedAt`。
+
 本次验证结果：客户端条目被发现、`/plugins/.../dsh-balance/client.js` 可取（页面共 10.8 MB combo）、
 `GET /dsh-balance/state` 返回 `ready` 且金额与假接口一致、`POST /refresh` 让上游命中数 +1、未知子路径 404、
 断开上游后状态转为 `stale` 且旧数字保留。
