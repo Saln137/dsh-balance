@@ -11,9 +11,9 @@
 | `dsh-balance@0.2.7` 不兼容 | 第三方的同名包 | 不要安装；改用 `dsh-balance-hud` |
 | `dsh-balance-hud` | 本插件 | 放心安装 |
 
-[![verify](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml/badge.svg)](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml)
-[![release](https://img.shields.io/github/v/release/Saln137/dsh-balance)](https://github.com/Saln137/dsh-balance/releases)
-[![license](https://img.shields.io/github/license/Saln137/dsh-balance)](LICENSE)
+[![verify](https://github.com/poliucode/dsh-balance/actions/workflows/verify.yml/badge.svg)](https://github.com/poliucode/dsh-balance/actions/workflows/verify.yml)
+[![release](https://img.shields.io/github/v/release/poliucode/dsh-balance)](https://github.com/poliucode/dsh-balance/releases)
+[![license](https://img.shields.io/github/license/poliucode/dsh-balance)](LICENSE)
 
 ![侧边栏底部的余额行](docs/footer-row.png)
 
@@ -199,8 +199,8 @@ failed         读取失败且没有可回退的数据
 | 来源 | 地址 |
 | --- | --- |
 | npm（推荐） | `dsh-balance-hud` |
-| GitHub 仓库 | `github:Saln137/dsh-balance` |
-| GitHub Release 附件 | [Releases](https://github.com/Saln137/dsh-balance/releases) 里的 `dsh-balance-hud-x.y.z.tgz` |
+| GitHub 仓库 | `github:poliucode/dsh-balance` |
+| GitHub Release 附件 | [Releases](https://github.com/poliucode/dsh-balance/releases) 里的 `dsh-balance-hud-x.y.z.tgz` |
 
 ### 5.2 命令行安装
 
@@ -209,7 +209,7 @@ failed         读取失败且没有可回退的数据
 dsh plugin --profile web add dsh-balance-hud
 
 # GitHub 仓库：pnpm 会执行 prepare 构建，首次需按提示 allowBuilds 一次
-dsh plugin --profile web add github:Saln137/dsh-balance
+dsh plugin --profile web add github:poliucode/dsh-balance
 
 # Release 里的预构建 tarball：不需要批准任何构建脚本，推荐给他人用
 dsh plugin --profile web add ./dsh-balance-hud-0.4.0.tgz

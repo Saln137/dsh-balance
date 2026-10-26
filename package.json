@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance-hud",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "DeepSeek Harness 插件：在桌面端侧边栏底部常驻实时显示账号余额、今日消费与低余额告警。",
   "keywords": [
     "dsh",
@@ -12,11 +12,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Saln137/dsh-balance.git"
+    "url": "git+https://github.com/poliucode/dsh-balance.git"
   },
-  "homepage": "https://github.com/Saln137/dsh-balance#readme",
+  "homepage": "https://github.com/poliucode/dsh-balance#readme",
   "bugs": {
-    "url": "https://github.com/Saln137/dsh-balance/issues"
+    "url": "https://github.com/poliucode/dsh-balance/issues"
   },
   "type": "module",
   "main": "lib/index.js",
