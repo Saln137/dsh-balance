@@ -119,4 +119,4 @@ export interface BalanceView {
 export const ROUTE_PREFIX = '/dsh-balance'
 
 /** 客户端插件 id（必须等于包名，`__ModuleLoader__.load` 会校验）。 */
-export const PLUGIN_ID = 'dsh-balance'
+export const PLUGIN_ID = 'dsh-balance-hud'

@@ -30,7 +30,8 @@ function ok(message) {
 console.log('检查清单 ……')
 
 // ---- 1. 清单与文件 ----
-assert.equal(pkg.name, 'dsh-balance', '包名必须是 dsh-balance')
+// 包名形状检查（具体名字不写死：改名时不必改这里，其余断言都从 pkg.name 推导）。
+assert.match(pkg.name, /^(?:@[a-z0-9-]+\/)?[a-z0-9][a-z0-9._-]*$/u, '包名必须是合法的 npm 包名')
 assert.equal(pkg.type, 'module', 'package.json 必须是 ESM')
 assert.equal(pkg.dsh?.bundle?.patch, './cordis.patch.yml', '缺少 dsh.bundle.patch')
 assert.equal(pkg.dsh?.client?.platform, 'web', 'dsh.client.platform 必须是 web')

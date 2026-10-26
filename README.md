@@ -1,6 +1,15 @@
-# dsh-balance
+# dsh-balance-hud
 
-> 在 DeepSeek Harness 桌面端**侧边栏底部常驻显示账号余额**的插件。
+> 在 DeepSeek Harness 桌面端**侧边栏底部常驻显示账号余额**的插件：余额、今日消费、低余额告警、流速扫光。
+
+**包名是 `dsh-balance-hud`，不是 `dsh-balance`。** npm 上的 `dsh-balance` 是另一位作者的包（最新 0.2.7），
+它声明了 `@deepseek-ai/dsh-credentials ^0.1.0-rc.6` 等 peer 依赖，在新版 DSH 上会被兼容性预检判定为不兼容
+（就是那条「dsh-balance@0.2.7 与 DSH 0.2.1-rc.3 不兼容」的提示）。**本包与它无关，请按下面的包名安装。**
+
+| 你看到的 | 它是什么 | 该怎么办 |
+| --- | --- | --- |
+| `dsh-balance@0.2.7` 不兼容 | 第三方的同名包 | 不要安装；改用 `dsh-balance-hud` |
+| `dsh-balance-hud` | 本插件 | 放心安装 |
 
 [![verify](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml/badge.svg)](https://github.com/Saln137/dsh-balance/actions/workflows/verify.yml)
 [![release](https://img.shields.io/github/v/release/Saln137/dsh-balance)](https://github.com/Saln137/dsh-balance/releases)
@@ -141,7 +150,7 @@ failed         读取失败且没有可回退的数据
 
 ## 4. 配置
 
-在 profile 的 `cordis.patch.yml` 里按 `id: dsh-balance` 覆盖即可（bundle 自带一层默认值）。全部可省略：
+在 profile 的 `cordis.patch.yml` 里按 `id: dsh-balance-hud` 覆盖即可（bundle 自带一层默认值）。全部可省略：
 
 | 配置项 | 默认 | 说明 |
 | --- | --- | --- |
@@ -163,8 +172,8 @@ failed         读取失败且没有可回退的数据
 示例：
 
 ```yaml
-- id: dsh-balance
-  name: 'dsh-balance'
+- id: dsh-balance-hud
+  name: 'dsh-balance-hud'
   config:
     source: api-key
     displayCurrency: USD
@@ -173,7 +182,43 @@ failed         读取失败且没有可回退的数据
 
 ## 5. 安装
 
-### 5.1 装进本机 desktop profile（已执行）
+> 三种方式任选一种。**装完需要重启 DeepSeek Harness**（宿主半侧在启动时装配；只更新客户端的话页面会热更新）。
+
+### 5.1 在 DSH Desktop 里搜索安装（最省事）
+
+1. 打开 DeepSeek Harness 桌面端 → 左侧「插件」；
+2. 点「安装插件」，在搜索/输入框里填包名 **`dsh-balance-hud`**；
+3. 选中后安装，按提示重启。
+
+> 搜索走的是 npm registry。如果搜到 `dsh-balance`（**不带 `-hud`**），那不是本插件：它属于第三方作者，
+> 声明了 `@deepseek-ai/dsh-credentials ^0.1.0-rc.6` 等 peer 依赖，在新版 DSH 上会被兼容性预检判定为不兼容
+> （即「dsh-balance@0.2.7 与 DSH 0.2.1-rc.3 不兼容」那条提示），**不要安装**。
+
+可直接粘贴到「按名称安装」输入框的地址：
+
+| 来源 | 地址 |
+| --- | --- |
+| npm（推荐） | `dsh-balance-hud` |
+| GitHub 仓库 | `github:Saln137/dsh-balance` |
+| GitHub Release 附件 | [Releases](https://github.com/Saln137/dsh-balance/releases) 里的 `dsh-balance-hud-x.y.z.tgz` |
+
+### 5.2 命令行安装
+
+```sh
+# npm（发布后可用）
+dsh plugin --profile web add dsh-balance-hud
+
+# GitHub 仓库：pnpm 会执行 prepare 构建，首次需按提示 allowBuilds 一次
+dsh plugin --profile web add github:Saln137/dsh-balance
+
+# Release 里的预构建 tarball：不需要批准任何构建脚本，推荐给他人用
+dsh plugin --profile web add ./dsh-balance-hud-0.4.0.tgz
+```
+
+`<profile>` 一般是 `web`。桌面端 profile 是 `desktop`，但它被 Electron 独占（CLI 会直接拒绝），
+请用 5.1 的界面安装，或用 5.3 的脚本。
+
+### 5.3 本机开发：把仓库链接进 desktop profile
 
 ```sh
 node scripts/install.mjs                      # 默认 profile = desktop，$DSH_HOME=~/.dsh
@@ -184,42 +229,27 @@ node scripts/install.mjs --uninstall          # 移除
 
 脚本只做最小改动，并且**可回退**：
 
-1. 首次安装时把 `profiles/<name>/package.json` 备份为 `package.json.bak-dsh-balance`；
-2. 在 `dependencies` 里加一条 `"dsh-balance": "link:<本仓库绝对路径>"`（以后无论谁跑 pnpm install 都不会丢）；
-3. 在 `dsh.profile.bundles` 末尾追加 `dsh-balance`；
-4. 在 `profiles/<name>/node_modules/dsh-balance` 建一个指向本仓库的 junction。
+1. 首次安装时把 `profiles/<name>/package.json` 备份为 `package.json.bak-dsh-balance-hud`；
+2. 在 `dependencies` 里加一条 `"dsh-balance-hud": "link:<本仓库绝对路径>"`（以后无论谁跑 pnpm install 都不会丢）；
+3. 在 `dsh.profile.bundles` 末尾追加 `dsh-balance-hud`；
+4. 在 `profiles/<name>/node_modules/dsh-balance-hud` 建一个指向本仓库的 junction。
 
-> 为什么不用 `dsh plugin --profile desktop add ...`：desktop profile 被 Electron 独占（CLI 会直接拒绝：*profile "desktop" is managed exclusively by the Electron application*），而且 `dsh plugin` 会驱动 pnpm 重新解析整个 profile 依赖，可能顺带升级你已装的其它插件。这里只动本插件需要的三处。
+> 为什么不用 `dsh plugin --profile desktop add ...`：desktop profile 被 Electron 独占，而且 `dsh plugin`
+> 会驱动 pnpm 重新解析整个 profile 依赖，可能顺带升级你已装的其它插件。脚本只动本插件需要的三处。
 
-**装完需要重启 DeepSeek Harness**：profile 的 bundle 列表和插件模块在启动时装配，热更新只覆盖「已在跑」的插件产物。
-
-### 5.2 分发成可安装的 bundle
-
-本包已是标准 DSH bundle（`dsh.bundle.patch` + `dsh.client`），可直接打包分发：
+### 5.4 打包与发布
 
 ```sh
-pnpm release                                  # 构建 + 产出 dsh-balance-0.1.0.tgz
-dsh plugin --profile <名字> add ./dsh-balance-0.1.0.tgz
+pnpm release                                                    # 构建 + 产出 dsh-balance-hud-<version>.tgz
+npm login   --registry https://registry.npmjs.org               # 首次发布前登录
+npm publish --registry https://registry.npmjs.org               # 发布到官方 npm
 ```
 
-### 5.3 从 GitHub 安装
-
-**A. 用 Release 里的 tarball（推荐）**：用户不需要批准任何构建脚本。
-
-1. 本地 `pnpm release` 生成 `dsh-balance-x.y.z.tgz`；
-2. 在 GitHub 建一个 Release，把 tgz 作为附件上传；
-3. 用户下载后：`dsh plugin --profile <名字> add ./dsh-balance-x.y.z.tgz`。
-
-**B. 直接装仓库**（需要用户批准一次构建）：
-
-```sh
-dsh plugin --profile <名字> add github:<owner>/dsh-balance
-```
-
-本包带 `prepare`（等于 `tsdown`），pnpm 会在安装后构建 `lib/`。pnpm ≥10 默认拒绝执行 git 依赖的构建脚本，
-首次 `add` 会失败并在 profile 的 `pnpm-workspace.yaml` 里给出待批准项，把它写成
-`allowBuilds: { dsh-balance: true }` 后重跑即可。注意：**批准构建等于允许该包在你的机器上执行安装期代码**，
-只对信任的仓库这么做；生产建议钉死提交：`github:<owner>/dsh-balance#<sha>`。
+> 本机默认 registry 是 `registry.npmmirror.com`（**只读镜像**，不能发布），所以显式加 `--registry`。
+> 发布成功后包页是 https://www.npmjs.com/package/dsh-balance-hud ，
+> 桌面端「插件 → 安装」里搜 `dsh-balance-hud` 就能直接装。
+>
+> 发布前建议先 `npm publish --dry-run` 核对内容（本包 `files` 只含 `lib/`、`cordis.patch.yml`、`README.md`、`docs/`）。
 
 ## 6. 验证
 
@@ -260,7 +290,7 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 `{"status":"ready","source":"account",…}` —— 走的是登录账号路由（`deepseekAccount.getBalance`），
 侧边栏底部的数字随本会话的计费消耗同步变化；`POST /refresh` 会推进 `checkedAt`。
 
-本次验证结果：客户端条目被发现、`/plugins/.../dsh-balance/client.js` 可取（页面共 10.8 MB combo）、
+本次验证结果：客户端条目被发现、`/plugins/.../dsh-balance-hud/client.js` 可取（页面共 10.8 MB combo）、
 `GET /dsh-balance/state` 返回 `ready` 且金额与假接口一致、`POST /refresh` 让上游命中数 +1、未知子路径 404、
 断开上游后状态转为 `stale` 且旧数字保留。
 
@@ -333,6 +363,19 @@ node scripts/verify/screenshot.mjs "<authenticated url>" out.png 6000 1440 900
 ```
 
 ## 8. 兼容性与边界
+
+**兼容性**：本包**没有任何 `peerDependencies`**，也不 import 任何 `@deepseek-ai/*` 运行时模块（宿主只用 `ctx.get()` 软取服务，浏览器只用 `require('react')` 等平台种子模块）。DSH 的兼容性预检只检查 `@deepseek-ai/dsh*` 的 peer 范围，没有 peer 就不会被判成不兼容。`package.json` 另外声明了已实测的 DSH 版本：
+
+```json
+"dsh": {
+  "compatibility": {
+    "dshReleases": { "0.2.0-rc.2": "compatible", "0.2.1-rc.3": "compatible" }
+  }
+}
+```
+
+> 如果 DSH 提示 **`dsh-balance@0.2.7 … 不兼容`**：那是 **npm 上的同名第三方包**，不是本插件。本插件包名是
+> **`dsh-balance-hud`**，两者没有代码关系——卸载那个包、安装本包即可。
 
 - 依赖的宿主能力：`webServer`（必需，装配前提）、`credentials`、`deepseekAccount`、`session/event`；浏览器侧 `slots`、`locale`、`sidebar.footer.action` 插槽与 `window.__ModuleLoader__`。
 - 账号服务缺失（例如只用 API Key 的组合）不影响装配，会退到 API Key 路由。

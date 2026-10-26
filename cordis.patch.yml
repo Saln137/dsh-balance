@@ -1,15 +1,19 @@
-# dsh-balance 的 bundle 配置层。
+# dsh-balance-hud 的 bundle 配置层。
 #
 # 用户在 profile 里列出本包后，DSH 启动时会按 bundle 层栈把这一层叠上去：
 #   - `id` 必须全局唯一（与包名一致），profile 覆盖时按它定位；
-#   - `name: 'dsh-balance'` 解析到 package.json 的 main（宿主半侧）；
+#   - `name: 'dsh-balance-hud'` 解析到 package.json 的 main（宿主半侧）；
 #   - 因为 package.json 声明了 `dsh.client`，DSH 同时把本包登记为浏览器插件，
-#     页面会从 /plugins/dsh-balance/client.js 取客户端半侧。
+#     页面会从 /plugins/dsh-balance-hud/client.js 取客户端半侧。
+#
+# 为什么包名带 -hud：npm 上的 `dsh-balance` 已被第三方占用，且那个包声明了与新版
+# DSH 冲突的 peerDependencies（会被兼容性预检判定为不兼容）。本包零运行时依赖，
+# 不需要任何 @deepseek-ai/* peer，因此不会触发该检查。
 #
 # `config` 全部可省略（宿主侧有默认值并做校验）；下面列出常用项便于按需打开。
 - insert:
-    - id: dsh-balance
-      name: 'dsh-balance'
+    - id: dsh-balance-hud
+      name: 'dsh-balance-hud'
       config:
         # auto：先查已登录的 DeepSeek 账号余额，取不到再退回 API Key 路由
         # 其余可选值：account（只查账号）/ api-key（只查 API Key）

@@ -1,6 +1,6 @@
 /**
  * 端到端验证：跑在一个真实的 DSH 进程上，检查四件事——
- * 1. 浏览器半侧是否被客户端模块系统发现（boot graph 里有 dsh-balance）；
+ * 1. 浏览器半侧是否被客户端模块系统发现（boot graph 里有本包）；
  * 2. `/plugins/.../client.js` 是否可下载且内容正确；
  * 3. 宿主路由 `GET /dsh-balance/state` 是否返回模拟接口里的数字；
  * 4. `POST /dsh-balance/refresh` 是否真的去打了上游接口。
@@ -9,6 +9,10 @@
  * 前提: 已用临时 profile 启动实例，且实例的 baseUrl 指向 mock-balance.mjs。
  */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+
+/** 包名从 manifest 读：改名后这套脚本不用跟着改。 */
+const pkgName = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).name
 
 const launchUrl = process.argv[2]
 const mockBase = process.argv[3] ?? 'http://127.0.0.1:6398'
@@ -34,10 +38,12 @@ console.log(`✓ 用启动令牌换到会话 Cookie（HTTP ${login.status}）`)
 const indexResponse = await fetch(`${base}/`, { headers: { cookie } })
 assert.equal(indexResponse.status, 200, '首页应返回 200')
 const html = await indexResponse.text()
-assert.ok(html.includes('dsh-balance'), 'boot graph 应包含 dsh-balance 客户端条目')
+assert.ok(html.includes(pkgName), `boot graph 应包含 ${pkgName} 客户端条目`)
 // 首页用 <base href="./">，combo 地址是文档相对路径（不带前导 /），且 HTML 里 & 被转义。
-const bundleMatch = html.match(/(?:\.\/)?plugins\/\?\?[^"'\\\s]*dsh-balance\/client\.js[^"'\\\s]*/u)
-assert.ok(bundleMatch !== null, '首页应包含 dsh-balance 的 /plugins 资源地址')
+const escapedName = pkgName.replaceAll('/', '\\/')
+const bundlePattern = new RegExp(`(?:\\.\\/)?plugins\\/\\?\\?[^"'\\\\\\s]*${escapedName}\\/client\\.js[^"'\\\\\\s]*`, 'u')
+const bundleMatch = html.match(bundlePattern)
+assert.ok(bundleMatch !== null, `首页应包含 ${pkgName} 的 /plugins 资源地址`)
 const bundleUrl = new URL(bundleMatch[0].replaceAll('&amp;', '&'), `${base}/`).href
 console.log(`✓ 客户端条目已被发现：${bundleMatch[0].slice(0, 96)}…`)
 
@@ -46,7 +52,7 @@ const bundleResponse = await fetch(bundleUrl, { headers: { cookie } })
 assert.equal(bundleResponse.status, 200, '客户端产物应返回 200')
 const bundle = await bundleResponse.text()
 assert.ok(bundle.includes('__ModuleLoader__'), '客户端产物应使用 __ModuleLoader__')
-assert.ok(bundle.includes('"dsh-balance"') || bundle.includes("'dsh-balance'"), '客户端产物应登记 dsh-balance')
+assert.ok(bundle.includes(JSON.stringify(pkgName)), `客户端产物应登记 ${pkgName}`)
 console.log(`✓ 客户端产物可下载（${bundle.length} 字节）`)
 
 // 4) 宿主快照：应为 ready，且数字来自假接口。

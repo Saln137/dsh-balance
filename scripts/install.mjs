@@ -54,7 +54,7 @@ const options = parseArgs(process.argv.slice(2))
 const profileDir = join(resolve(options.home), 'profiles', options.profile)
 const manifestPath = join(profileDir, 'package.json')
 const linkPath = join(profileDir, 'node_modules', pkg.name)
-const backupPath = join(profileDir, 'package.json.bak-dsh-balance')
+const backupPath = join(profileDir, 'package.json.bak-dsh-balance-hud')
 
 if (!existsSync(manifestPath)) {
   console.error(`找不到 profile 清单：${manifestPath}`)

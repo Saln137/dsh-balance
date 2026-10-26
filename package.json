@@ -1,8 +1,7 @@
 {
-  "name": "dsh-balance",
-  "version": "0.3.2",
-  "private": true,
-  "description": "DeepSeek Harness 插件：在桌面端侧边栏底部常驻实时显示账号余额。",
+  "name": "dsh-balance-hud",
+  "version": "0.4.0",
+  "description": "DeepSeek Harness 插件：在桌面端侧边栏底部常驻实时显示账号余额、今日消费与低余额告警。",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -46,6 +45,12 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible",
+        "0.2.1-rc.3": "compatible"
+      }
     },
     "client": {
       "platform": "web"
